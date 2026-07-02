@@ -9,7 +9,7 @@ The implementation builds on [OpenUsage](https://github.com/robinebers/openusage
 Install the skill with [skills.sh](https://skills.sh):
 
 ```bash
-npx --yes skills add telegraphic-dev/am-i-cooked --skill claude-quota-gate --global
+npx --yes skills add telegraphic-dev/am-i-cooked --global
 ```
 
 For local development:
