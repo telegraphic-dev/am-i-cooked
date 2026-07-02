@@ -2,6 +2,8 @@
 
 Claude Code skill that checks remaining Claude subscription usage before expensive work. It bundles a small Node.js script that reuses existing Claude Code OAuth credentials, queries Claude's OAuth usage endpoint, and returns a machine-readable allow/skip decision.
 
+This project intentionally builds on the public reverse-engineering work in [OpenUsage](https://github.com/robinebers/openusage). OpenUsage is the reference used here for Claude Code credential locations, Keychain service-name hashing, OAuth refresh client details, and the current usage response shape.
+
 No MCP. No manual token paste. Fail closed by default.
 
 ## What it does
@@ -49,7 +51,7 @@ Credential lookup order:
 
 1. If `CLAUDE_CONFIG_DIR` is set, try Claude Code's config-specific Keychain service name:
    - `Claude Code-credentials-<hash>`
-   - `<hash>` is the first 8 lowercase hex chars of SHA-256 over the NFC-normalized `CLAUDE_CONFIG_DIR`, matching OpenUsage' Claude credential discovery.
+   - `<hash>` is the first 8 lowercase hex chars of SHA-256 over the NFC-normalized `CLAUDE_CONFIG_DIR`, matching OpenUsage's Claude credential discovery.
 2. Try default Keychain service:
    - `Claude Code-credentials`
 3. Fallback to:
@@ -128,6 +130,23 @@ The gate handles the response shape used by OpenUsage:
 - remaining percentage is `100 - utilization`.
 - reset timestamps are preserved when present.
 - optional fields such as `seven_day_sonnet`, `extra_usage`, and `limits` are preserved under `usage.extra`.
+
+When `resets_at` is present, the script also adds a `pacing` object. It uses the known window duration — five hours for `five_hour`, seven days for `weekly` — and the reset time to estimate whether current usage is ahead of a linear budget:
+
+```json
+{
+  "pacing": {
+    "period_duration_ms": 604800000,
+    "elapsed_pct": 42.5,
+    "expected_used_pct": 42.5,
+    "used_minus_expected_pct": 12.5,
+    "burn_rate_ratio": 1.29,
+    "faster_than_linear_budget": true
+  }
+}
+```
+
+This is advisory metadata. The gate decision still uses remaining percentage thresholds only, so the allow/skip contract stays stable.
 
 ## CLI options
 

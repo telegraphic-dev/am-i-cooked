@@ -97,7 +97,7 @@ node scripts/quota-gate.mjs --weekly-min=60 --five-hour-min=30
 
 ## Output Shape
 
-The script always prints JSON.
+The script always prints JSON. `resets_at` is preserved when the endpoint provides it. When reset time is known, each usage window can include advisory `pacing` metadata showing whether usage is faster than a linear budget for that window.
 
 Allowed:
 

@@ -37,12 +37,16 @@ async function tempEnvWithCredentials(oauth = { accessToken: 'access-token', ref
 }
 
 test('usage normalization converts utilization to remaining percentages', () => {
-  const usage = normalizeUsageResponse(fixture);
+  const usage = normalizeUsageResponse(fixture, { now: () => Date.parse('2026-07-02T14:30:00Z') });
   assert.equal(usage.five_hour.used_pct, 25);
   assert.equal(usage.five_hour.remaining_pct, 75);
   assert.equal(usage.weekly.used_pct, 60);
   assert.equal(usage.weekly.remaining_pct, 40);
   assert.equal(usage.weekly.resets_at, '2026-07-08T00:00:00Z');
+  assert.equal(usage.five_hour.pacing.period_duration_ms, 18_000_000);
+  assert.equal(usage.five_hour.pacing.elapsed_pct, 50);
+  assert.equal(usage.five_hour.pacing.faster_than_linear_budget, false);
+  assert.ok(usage.weekly.pacing.faster_than_linear_budget);
   assert.ok(usage.extra.seven_day_sonnet);
 });
 

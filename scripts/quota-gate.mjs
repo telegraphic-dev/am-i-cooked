@@ -83,7 +83,7 @@ async function getUsageWithCache({ options, env, fetchImpl, now, debug }) {
     const authCandidate = await discoverClaudeCredentials({ env });
     const { accessToken, source, refreshed } = await getClaudeAccessToken({ env, fetchImpl, now, authCandidate });
     debug(`credential source=${source} refreshed=${refreshed}`);
-    const usage = await fetchClaudeUsage(accessToken, { fetchImpl });
+    const usage = await fetchClaudeUsage(accessToken, { fetchImpl, now });
     if (!options.noCache) await writeUsageCache(usage, { path: cachePath, now });
     return usage;
   } catch (error) {
