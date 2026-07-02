@@ -59,6 +59,13 @@ web_modules/
 # Optional REPL history
 .node_repl_history
 
+# Local Claude quota gate artifacts
+claude-quota-gate-cache/
+.credentials.json
+*.credentials.json
+*.local.json
+tmp/
+
 # Output of 'npm pack'
 *.tgz
 

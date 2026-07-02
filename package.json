@@ -1,0 +1,14 @@
+{
+  "name": "claude-quota-gate",
+  "version": "1.0.0",
+  "description": "Claude Code skill and quota gate script for checking Claude subscription usage before expensive work.",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "license": "MIT"
+}
