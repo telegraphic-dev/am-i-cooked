@@ -4,7 +4,15 @@
 
 The implementation builds on [OpenUsage](https://github.com/robinebers/openusage), which documented the Claude Code credential locations, macOS Keychain service naming, OAuth refresh client details, and current usage response shape.
 
-## Quick start
+## Installation
+
+Install the skill with [skills.sh](https://skills.sh):
+
+```bash
+npx --yes skills add telegraphic-dev/am-i-cooked --skill claude-quota-gate --global
+```
+
+For local development:
 
 ```bash
 git clone https://github.com/telegraphic-dev/am-i-cooked.git
@@ -13,7 +21,7 @@ npm test
 node scripts/quota-gate.mjs --weekly-min=50 --five-hour-min=20
 ```
 
-Use the bundled `SKILL.md` with Claude Code. For quota-sensitive prompts, Claude should run the gate before starting the work:
+For quota-sensitive prompts, Claude should run the gate before starting the work:
 
 ```bash
 node scripts/quota-gate.mjs --weekly-min=50 --five-hour-min=20
