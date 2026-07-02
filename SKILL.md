@@ -2,7 +2,7 @@
 name: claude-quota-gate
 description: Use before expensive, long-running, automated, or quota-sensitive Claude Code work to check Claude subscription usage and fail closed when quota is low or unknown.
 version: 1.0.0
-author: Telegraphic Developer
+author: Vladimir Orany
 license: MIT
 metadata:
   hermes:
