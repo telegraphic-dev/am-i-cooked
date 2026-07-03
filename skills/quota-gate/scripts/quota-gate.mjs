@@ -1,9 +1,11 @@
 #!/usr/bin/env node
-import { discoverClaudeCredentials, getClaudeAccessToken, QuotaGateError, redactSecrets } from './claude-auth.mjs';
-import { evaluateQuotaGate, fetchClaudeUsage } from './claude-usage.mjs';
+import { discoverClaudeCredentials, getClaudeAccessToken } from './claude-auth.mjs';
+import { fetchClaudeUsage } from './claude-usage.mjs';
 import { discoverCodexCredentials, getCodexAccessToken } from './codex-auth.mjs';
 import { fetchCodexUsage } from './codex-usage.mjs';
 import { DEFAULT_TTL_SECONDS, defaultCachePath, readUsageCache, writeUsageCache } from './cache.mjs';
+import { QuotaGateError, redactSecrets } from './errors.mjs';
+import { evaluateQuotaGate } from './usage-core.mjs';
 
 export function parseArgs(argv) {
   const options = {

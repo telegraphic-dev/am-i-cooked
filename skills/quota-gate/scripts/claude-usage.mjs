@@ -1,11 +1,9 @@
-import { QuotaGateError } from './claude-auth.mjs';
+import { QuotaGateError } from './errors.mjs';
+import { FIVE_HOUR_PERIOD_MS, WEEKLY_PERIOD_MS } from './usage-core.mjs';
 
 export const USAGE_URL = 'https://api.anthropic.com/api/oauth/usage';
 export const CLAUDE_USAGE_BETA = 'oauth-2025-04-20';
 export const DEFAULT_USER_AGENT = 'claude-code/2.1.69';
-
-export const FIVE_HOUR_PERIOD_MS = 5 * 60 * 60 * 1000;
-export const WEEKLY_PERIOD_MS = 7 * 24 * 60 * 60 * 1000;
 
 export async function fetchClaudeUsage(accessToken, { fetchImpl = globalThis.fetch, userAgent = DEFAULT_USER_AGENT, now = Date.now } = {}) {
   if (!fetchImpl) throw new QuotaGateError('fetch_unavailable');
@@ -108,11 +106,4 @@ function roundPct(value) {
   return Number(value.toFixed(2));
 }
 
-export function evaluateQuotaGate(usage, thresholds) {
-  const weekly = usage?.weekly?.remaining_pct;
-  const fiveHour = usage?.five_hour?.remaining_pct;
-  if (!Number.isFinite(weekly)) throw new QuotaGateError('missing_weekly_usage');
-  if (thresholds.five_hour_min_remaining_pct > 0 && !Number.isFinite(fiveHour)) throw new QuotaGateError('missing_five_hour_usage');
-  if (Number.isFinite(fiveHour) && fiveHour < thresholds.five_hour_min_remaining_pct) return false;
-  return weekly >= thresholds.weekly_min_remaining_pct;
-}
+

@@ -1,5 +1,5 @@
-import { QuotaGateError } from './claude-auth.mjs';
-import { FIVE_HOUR_PERIOD_MS, WEEKLY_PERIOD_MS } from './claude-usage.mjs';
+import { QuotaGateError } from './errors.mjs';
+import { FIVE_HOUR_PERIOD_MS, WEEKLY_PERIOD_MS } from './usage-core.mjs';
 
 export const CODEX_USAGE_URL = 'https://chatgpt.com/backend-api/wham/usage';
 
