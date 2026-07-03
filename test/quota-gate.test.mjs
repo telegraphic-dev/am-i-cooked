@@ -3,10 +3,10 @@ import assert from 'node:assert/strict';
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { normalizeUsageResponse, evaluateQuotaGate } from '../scripts/claude-usage.mjs';
-import { runQuotaGate } from '../scripts/quota-gate.mjs';
-import { redactSecrets } from '../scripts/claude-auth.mjs';
-import { writeUsageCache } from '../scripts/cache.mjs';
+import { normalizeUsageResponse, evaluateQuotaGate } from '../skills/claude-quota-gate/scripts/claude-usage.mjs';
+import { runQuotaGate } from '../skills/claude-quota-gate/scripts/quota-gate.mjs';
+import { redactSecrets } from '../skills/claude-quota-gate/scripts/claude-auth.mjs';
+import { writeUsageCache } from '../skills/claude-quota-gate/scripts/cache.mjs';
 
 const fixture = JSON.parse(await readFile(new URL('./fixtures/usage-response.json', import.meta.url), 'utf8'));
 
