@@ -111,6 +111,8 @@ function roundPct(value) {
 export function evaluateQuotaGate(usage, thresholds) {
   const weekly = usage?.weekly?.remaining_pct;
   const fiveHour = usage?.five_hour?.remaining_pct;
-  if (!Number.isFinite(weekly) || !Number.isFinite(fiveHour)) throw new QuotaGateError('invalid_usage_response');
-  return weekly >= thresholds.weekly_min_remaining_pct && fiveHour >= thresholds.five_hour_min_remaining_pct;
+  if (!Number.isFinite(weekly)) throw new QuotaGateError('missing_weekly_usage');
+  if (thresholds.five_hour_min_remaining_pct > 0 && !Number.isFinite(fiveHour)) throw new QuotaGateError('missing_five_hour_usage');
+  if (Number.isFinite(fiveHour) && fiveHour < thresholds.five_hour_min_remaining_pct) return false;
+  return weekly >= thresholds.weekly_min_remaining_pct;
 }

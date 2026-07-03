@@ -1,8 +1,8 @@
 # claude-quota-gate
 
-`claude-quota-gate` is a Claude Code skill for checking remaining Claude subscription usage before expensive, long-running, or automated work. It ships a small Node.js gate that reads the local Claude Code OAuth credentials, queries Claude usage, and returns a stable machine-readable allow/skip decision.
+`claude-quota-gate` is an agent quota preflight skill for checking remaining AI coding subscription usage before expensive, long-running, or automated work. It ships a small Node.js gate that returns a stable machine-readable allow/skip decision.
 
-The implementation builds on [OpenUsage](https://github.com/robinebers/openusage), which documented the Claude Code credential locations, macOS Keychain service naming, OAuth refresh client details, and current usage response shape.
+By default it reads Claude usage directly from local Claude Code credentials. When [OpenUsage](https://github.com/robinebers/openusage) is running, it can also gate any OpenUsage provider that exposes session/weekly progress meters, including Claude, Codex, Antigravity, Devin, Grok, OpenRouter, Cursor, and Z.ai where the relevant quota rows exist.
 
 ## Installation
 
@@ -25,6 +25,18 @@ For quota-sensitive prompts, Claude should run the gate before starting the work
 
 ```bash
 scripts/quota-gate --weekly-min=50 --five-hour-min=20
+```
+
+For an OpenUsage-backed provider, select it explicitly:
+
+```bash
+scripts/quota-gate --provider=codex --weekly-min=50 --session-min=20
+```
+
+Antigravity exposes separate pools; select the non-Gemini pool with:
+
+```bash
+scripts/quota-gate --provider=antigravity --pool=claude --weekly-min=50 --session-min=20
 ```
 
 Thresholds are minimum **remaining** percentages.
@@ -105,6 +117,7 @@ or:
 
 ```bash
 scripts/quota-gate \
+  --provider=claude \
   --weekly-min=50 \
   --five-hour-min=20 \
   --json \
@@ -115,8 +128,12 @@ scripts/quota-gate \
 
 Options:
 
+- `--provider=<id>`: provider to check. Default: `claude`. For OpenUsage use ids such as `claude`, `codex`, `antigravity`, `cursor`, `devin`, `grok`, `openrouter`, or `zai`.
+- `--pool=<default|claude|gemini|spark>`: OpenUsage progress-pair selector for providers with multiple quota pools. Default: `default`.
+- `--usage-source=<auto|openusage|claude-direct>`: usage source. Default: `auto`, which tries OpenUsage first and falls back to direct Claude credentials for `--provider=claude`.
+- `--openusage-url=<url>`: OpenUsage local API base URL. Default: `http://127.0.0.1:6736`.
 - `--weekly-min=<0..100>`: minimum weekly remaining percentage. Default: `50`.
-- `--five-hour-min=<0..100>`: minimum five-hour remaining percentage. Default: `0`.
+- `--five-hour-min=<0..100>` / `--session-min=<0..100>`: minimum session/five-hour remaining percentage. Default: `0`.
 - `--json`: accepted for clarity; JSON output is always enabled.
 - `--no-cache`: bypass read/write cache.
 - `--cache-ttl-seconds=<n>`: cache freshness window. Default: `180`.
@@ -200,7 +217,7 @@ The endpoint is undocumented and may change. Invalid responses fail closed.
 
 ## Usage normalization
 
-The gate handles the response shape used by OpenUsage:
+The gate handles Claude's direct response shape and OpenUsage's local HTTP API snapshots. For direct Claude usage:
 
 - `five_hour.utilization`: five-hour usage percentage, `0..100`.
 - `seven_day.utilization`: weekly usage percentage, `0..100`.
@@ -231,8 +248,8 @@ The script caches normalized usage for 180 seconds by default.
 
 Cache location:
 
-- `${XDG_CACHE_HOME}/claude-quota-gate/usage.json`, or
-- `~/.cache/claude-quota-gate/usage.json`
+- `${XDG_CACHE_HOME}/claude-quota-gate/<provider>-<pool>-<source>.json`, or
+- `~/.cache/claude-quota-gate/<provider>-<pool>-<source>.json`
 
 If the endpoint fails and a non-stale cached response exists, the script can use the cache. If the cache is stale and the endpoint fails, it exits `1`.
 

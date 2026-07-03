@@ -1,12 +1,12 @@
 ---
 name: claude-quota-gate
-description: Use before expensive, long-running, automated, or quota-sensitive Claude Code work to check Claude subscription usage and fail closed when quota is low or unknown.
+description: Use before expensive, long-running, automated, or quota-sensitive AI coding agent work to check subscription quota and fail closed when quota is low or unknown.
 version: 1.0.0
 author: Vladimir Orany
 license: MIT
 metadata:
   hermes:
-    tags: [claude-code, quota, usage, automation, guardrail]
+    tags: [claude-code, codex, antigravity, openusage, quota, usage, automation, guardrail]
     related_skills: []
 ---
 
@@ -14,7 +14,7 @@ metadata:
 
 ## Overview
 
-Use this skill before expensive, long-running, automated, or quota-sensitive Claude Code routines. It runs a bundled Node.js gate that reuses existing Claude Code OAuth credentials, calls Claude's OAuth usage endpoint, and returns a machine-readable allow/skip decision.
+Use this skill before expensive, long-running, automated, or quota-sensitive AI coding agent routines. It runs a bundled Node.js gate that checks subscription quota and returns a machine-readable allow/skip decision. It supports direct Claude Code usage checks and OpenUsage-backed providers such as Claude, Codex, Antigravity, Cursor, Devin, Grok, OpenRouter, and Z.ai when OpenUsage is running locally.
 
 The gate fails closed. If quota is low, unknown, credentials are missing, the endpoint errors, or the response shape is invalid, do not continue with the requested work.
 
@@ -39,20 +39,20 @@ Default thresholds:
 - Exit `2`: quota is below threshold; stop and return only:
 
 ```json
-{"status":"skipped","reason":"low_claude_quota"}
+{"status":"skipped","reason":"low_ai_quota"}
 ```
 
 - Exit `1`: quota is unknown because of missing credentials, auth failure, endpoint error, invalid response, or internal error; stop and return only:
 
 ```json
-{"status":"skipped","reason":"unknown_claude_quota"}
+{"status":"skipped","reason":"unknown_ai_quota"}
 ```
 
 ## Rules
 
 1. Never estimate Claude quota from conversation context.
 2. Never continue if the quota check fails.
-3. Never ask for manual token input unless `quota-gate` explicitly reports `missing_claude_code_credentials`.
+3. Never ask for manual token input unless `quota-gate` explicitly reports a missing credential/API-key reason for the selected provider.
 4. Treat any non-zero exit as a hard stop for the expensive routine.
 5. Do not use MCP for this skill.
 6. Do not print or request access tokens or refresh tokens.
@@ -74,13 +74,13 @@ scripts/quota-gate --weekly-min=50
 If exit `0`, continue. If exit `2`, return only:
 
 ```json
-{"status":"skipped","reason":"low_claude_quota"}
+{"status":"skipped","reason":"low_ai_quota"}
 ```
 
 If exit `1`, return only:
 
 ```json
-{"status":"skipped","reason":"unknown_claude_quota"}
+{"status":"skipped","reason":"unknown_ai_quota"}
 ```
 
 ### Example 2
@@ -93,6 +93,30 @@ Expected action:
 
 ```bash
 scripts/quota-gate --weekly-min=60 --five-hour-min=30
+```
+
+### Example 3
+
+User prompt:
+
+> Use Codex only if OpenUsage says weekly quota remaining is at least 50%.
+
+Expected action:
+
+```bash
+scripts/quota-gate --provider=codex --usage-source=openusage --weekly-min=50
+```
+
+### Example 4
+
+User prompt:
+
+> Use Antigravity Claude pool only if its session quota has at least 20% remaining.
+
+Expected action:
+
+```bash
+scripts/quota-gate --provider=antigravity --pool=claude --session-min=20
 ```
 
 ## Output Shape
@@ -167,4 +191,4 @@ or:
 - [ ] Continued only on exit `0`.
 - [ ] Returned the exact low-quota JSON on exit `2`.
 - [ ] Returned the exact unknown-quota JSON on exit `1`.
-- [ ] Did not ask for or print OAuth tokens.
+- [ ] Did not ask for or print OAuth tokens, API keys, or credential files.
