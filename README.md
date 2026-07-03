@@ -9,7 +9,7 @@ By default it reads Claude usage directly from local Claude Code credentials. It
 Install the skill with [skills.sh](https://skills.sh):
 
 ```bash
-npx --yes skills add telegraphic-dev/am-i-cooked --global --agent claude-code --skill quota-gate
+npx --yes skills add telegraphic-dev/am-i-cooked --global --agent claude-code --agent codex --skill quota-gate
 ```
 
 For local development:
