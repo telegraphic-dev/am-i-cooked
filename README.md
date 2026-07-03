@@ -18,7 +18,7 @@ For local development:
 git clone https://github.com/telegraphic-dev/am-i-cooked.git
 cd am-i-cooked
 npm test
-node scripts/quota-gate.mjs --weekly-min=50 --five-hour-min=20
+node skills/claude-quota-gate/scripts/quota-gate.mjs --weekly-min=50 --five-hour-min=20
 ```
 
 For quota-sensitive prompts, Claude should run the gate before starting the work:
