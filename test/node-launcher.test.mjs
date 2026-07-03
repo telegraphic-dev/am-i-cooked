@@ -74,25 +74,3 @@ test('launcher is executable', async () => {
   assert.match(result.stdout, /"allowed":false/);
 });
 
-
-test('deprecated claude-quota-gate launcher delegates to renamed quota-gate skill', async () => {
-  const home = await mkdtemp(join(tmpdir(), 'quota-gate-legacy-'));
-  const legacy = resolve('skills/claude-quota-gate/scripts/quota-gate');
-  let result;
-  try {
-    const output = await execFileAsync(legacy, ['--no-cache'], {
-      env: {
-        ...process.env,
-        CLAUDE_CONFIG_DIR: join(home, 'missing-credentials'),
-        XDG_CACHE_HOME: join(home, 'cache')
-      },
-      maxBuffer: 1024 * 1024
-    });
-    result = { code: 0, stdout: output.stdout };
-  } catch (error) {
-    result = { code: error.code, stdout: error.stdout };
-  }
-
-  assert.equal(result.code, 1);
-  assert.equal(JSON.parse(result.stdout).reason, 'missing_claude_code_credentials');
-});
