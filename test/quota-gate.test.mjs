@@ -70,7 +70,7 @@ test('CLI returns exit code 2 when weekly threshold is not met', async () => {
   const io = streams();
   let calls = 0;
   const code = await runQuotaGate({
-    argv: ['--weekly-min=50', '--no-cache', '--usage-source=claude-direct'],
+    argv: ['--weekly-min=50', '--no-cache', '--provider=claude'],
     env,
     stdout: io.stdout,
     stderr: io.stderr,
@@ -87,7 +87,7 @@ test('missing credentials returns exit code 1', async () => {
   const dir = await mkdtemp(join(tmpdir(), 'claude-quota-gate-empty-'));
   const io = streams();
   const code = await runQuotaGate({
-    argv: ['--no-cache', '--usage-source=claude-direct'],
+    argv: ['--no-cache', '--provider=claude'],
     env: { ...process.env, CLAUDE_CONFIG_DIR: dir, XDG_CACHE_HOME: join(dir, 'cache') },
     stdout: io.stdout,
     stderr: io.stderr,
@@ -103,7 +103,7 @@ test('endpoint error returns exit code 1', async () => {
   const { dir, env } = await tempEnvWithCredentials();
   const io = streams();
   const code = await runQuotaGate({
-    argv: ['--no-cache', '--usage-source=claude-direct'],
+    argv: ['--no-cache', '--provider=claude'],
     env,
     stdout: io.stdout,
     stderr: io.stderr,
@@ -118,7 +118,7 @@ test('invalid response shape returns exit code 1', async () => {
   const { dir, env } = await tempEnvWithCredentials();
   const io = streams();
   const code = await runQuotaGate({
-    argv: ['--no-cache', '--usage-source=claude-direct'],
+    argv: ['--no-cache', '--provider=claude'],
     env,
     stdout: io.stdout,
     stderr: io.stderr,
@@ -135,7 +135,7 @@ test('cache hit avoids network call', async () => {
   await writeUsageCache(normalizeUsageResponse(fixture), { path: join(dir, 'cache', 'claude-quota-gate', 'claude-default-direct.json') });
   const io = streams();
   const code = await runQuotaGate({
-    argv: ['--weekly-min=40', '--usage-source=claude-direct'],
+    argv: ['--weekly-min=40', '--provider=claude'],
     env,
     stdout: io.stdout,
     stderr: io.stderr,
@@ -154,7 +154,7 @@ test('stale cache does not allow success if endpoint fails', async () => {
   });
   const io = streams();
   const code = await runQuotaGate({
-    argv: ['--cache-ttl-seconds=1', '--usage-source=claude-direct'],
+    argv: ['--cache-ttl-seconds=1', '--provider=claude'],
     env,
     stdout: io.stdout,
     stderr: io.stderr,
@@ -169,7 +169,7 @@ test('debug logs do not expose tokens', async () => {
   const { dir, env } = await tempEnvWithCredentials({ accessToken: 'secret-access-token', refreshToken: 'secret-refresh-token', expiresAt: Date.now() + 3_600_000 });
   const io = streams();
   const code = await runQuotaGate({
-    argv: ['--debug', '--no-cache', '--weekly-min=40', '--usage-source=claude-direct'],
+    argv: ['--debug', '--no-cache', '--weekly-min=40', '--provider=claude'],
     env,
     stdout: io.stdout,
     stderr: io.stderr,
@@ -184,89 +184,67 @@ test('debug logs do not expose tokens', async () => {
   assert.equal(redactSecrets('Authorization: Bearer secret-access-token'), 'Authorization: Bearer [REDACTED]');
 });
 
-const codexOpenUsageSnapshot = {
-  providerId: 'codex',
-  displayName: 'Codex',
-  plan: 'Plus',
-  fetchedAt: '2026-07-03T08:00:00Z',
-  lines: [
-    { type: 'progress', label: 'Session', used: 20, limit: 100, format: { kind: 'percent' }, resetsAt: '2026-07-03T10:00:00Z', periodDurationMs: 18_000_000 },
-    { type: 'progress', label: 'Weekly', used: 45, limit: 100, format: { kind: 'percent' }, resetsAt: '2026-07-09T00:00:00Z', periodDurationMs: 604_800_000 }
-  ]
+
+const codexUsageResponse = {
+  plan_type: 'plus',
+  rate_limit: {
+    primary_window: { used_percent: 20, reset_after_seconds: 7200, limit_window_seconds: 18000 },
+    secondary_window: { used_percent: 45, reset_after_seconds: 518400, limit_window_seconds: 604800 }
+  }
 };
 
-const antigravityOpenUsageSnapshot = {
-  providerId: 'antigravity',
-  displayName: 'Antigravity',
-  plan: 'Ultra',
-  fetchedAt: '2026-07-03T08:00:00Z',
-  lines: [
-    { type: 'progress', label: 'Session', used: 10, limit: 100, format: { kind: 'percent' } },
-    { type: 'progress', label: 'Weekly', used: 15, limit: 100, format: { kind: 'percent' } },
-    { type: 'progress', label: 'Claude', used: 70, limit: 100, format: { kind: 'percent' } },
-    { type: 'progress', label: 'Claude Weekly', used: 30, limit: 100, format: { kind: 'percent' } }
-  ]
-};
-
-test('OpenUsage provider gate passes for Codex session and weekly windows', async () => {
+test('Codex provider gate reads Codex auth and usage directly', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'codex-quota-gate-'));
+  await writeFile(join(dir, 'auth.json'), JSON.stringify({
+    tokens: { access_token: 'codex-access-token', refresh_token: 'codex-refresh-token', account_id: 'account-123' },
+    last_refresh: new Date().toISOString()
+  }), 'utf8');
   const io = streams();
   const code = await runQuotaGate({
-    argv: ['--provider=codex', '--usage-source=openusage', '--weekly-min=50', '--session-min=70', '--no-cache'],
-    env: process.env,
+    argv: ['--provider=codex', '--weekly-min=50', '--session-min=70', '--no-cache'],
+    env: { ...process.env, CODEX_HOME: dir },
     stdout: io.stdout,
     stderr: io.stderr,
-    fetchImpl: async (url) => {
-      assert.equal(String(url), 'http://127.0.0.1:6736/v1/usage/codex');
-      return okResponse(codexOpenUsageSnapshot);
+    fetchImpl: async (url, init) => {
+      assert.equal(String(url), 'https://chatgpt.com/backend-api/wham/usage');
+      assert.equal(init.headers.Authorization, 'Bearer codex-access-token');
+      assert.equal(init.headers['ChatGPT-Account-Id'], 'account-123');
+      return okResponse(codexUsageResponse);
     },
     now: () => Date.parse('2026-07-03T08:00:00Z')
   });
+  await rm(dir, { recursive: true, force: true });
 
   assert.equal(code, 0);
   const json = io.json();
   assert.equal(json.allowed, true);
   assert.equal(json.usage.provider_id, 'codex');
-  assert.equal(json.usage.source, 'openusage');
+  assert.equal(json.usage.source, 'codex-direct');
   assert.equal(json.usage.five_hour.remaining_pct, 80);
   assert.equal(json.usage.weekly.remaining_pct, 55);
 });
 
-test('OpenUsage provider gate fails when quota is below threshold', async () => {
+test('Codex provider gate fails when quota is below threshold', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'codex-quota-gate-low-'));
+  await writeFile(join(dir, 'auth.json'), JSON.stringify({ tokens: { access_token: 'codex-access-token' } }), 'utf8');
   const io = streams();
   const code = await runQuotaGate({
-    argv: ['--provider=codex', '--usage-source=openusage', '--weekly-min=60', '--no-cache'],
-    env: process.env,
+    argv: ['--provider=codex', '--weekly-min=60', '--no-cache'],
+    env: { ...process.env, CODEX_HOME: dir },
     stdout: io.stdout,
     stderr: io.stderr,
-    fetchImpl: async () => okResponse(codexOpenUsageSnapshot)
+    fetchImpl: async () => okResponse(codexUsageResponse)
   });
+  await rm(dir, { recursive: true, force: true });
 
   assert.equal(code, 2);
   assert.equal(io.json().reason, 'below_threshold');
 });
 
-test('OpenUsage Antigravity Claude pool can be selected', async () => {
+test('unsupported direct providers fail closed', async () => {
   const io = streams();
   const code = await runQuotaGate({
-    argv: ['--provider=antigravity', '--pool=claude', '--usage-source=openusage', '--weekly-min=60', '--session-min=20', '--no-cache'],
-    env: process.env,
-    stdout: io.stdout,
-    stderr: io.stderr,
-    fetchImpl: async () => okResponse(antigravityOpenUsageSnapshot)
-  });
-
-  assert.equal(code, 0);
-  const json = io.json();
-  assert.equal(json.usage.five_hour.label, 'Claude');
-  assert.equal(json.usage.five_hour.remaining_pct, 30);
-  assert.equal(json.usage.weekly.label, 'Claude Weekly');
-  assert.equal(json.usage.weekly.remaining_pct, 70);
-});
-
-test('non-Claude providers require OpenUsage', async () => {
-  const io = streams();
-  const code = await runQuotaGate({
-    argv: ['--provider=codex', '--usage-source=claude-direct', '--no-cache'],
+    argv: ['--provider=antigravity', '--no-cache'],
     env: process.env,
     stdout: io.stdout,
     stderr: io.stderr,
@@ -274,5 +252,5 @@ test('non-Claude providers require OpenUsage', async () => {
   });
 
   assert.equal(code, 1);
-  assert.equal(io.json().reason, 'openusage_required_for_provider');
+  assert.equal(io.json().reason, 'unsupported_direct_provider');
 });

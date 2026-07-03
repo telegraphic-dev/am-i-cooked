@@ -14,7 +14,7 @@ metadata:
 
 ## Overview
 
-Use this skill before expensive, long-running, automated, or quota-sensitive AI coding agent routines. It runs a bundled Node.js gate that checks subscription quota and returns a machine-readable allow/skip decision. It supports direct Claude Code usage checks and OpenUsage-backed providers such as Claude, Codex, Antigravity, Cursor, Devin, Grok, OpenRouter, and Z.ai when OpenUsage is running locally.
+Use this skill before expensive, long-running, automated, or quota-sensitive AI coding agent routines. It runs a bundled Node.js gate that checks subscription quota and returns a machine-readable allow/skip decision. It supports direct Claude Code and Codex usage checks using local CLI credentials; no resident OpenUsage app is required.
 
 The gate fails closed. If quota is low, unknown, credentials are missing, the endpoint errors, or the response shape is invalid, do not continue with the requested work.
 
@@ -99,25 +99,14 @@ scripts/quota-gate --weekly-min=60 --five-hour-min=30
 
 User prompt:
 
-> Use Codex only if OpenUsage says weekly quota remaining is at least 50%.
+> Use Codex only if weekly quota remaining is at least 50%.
 
 Expected action:
 
 ```bash
-scripts/quota-gate --provider=codex --usage-source=openusage --weekly-min=50
+scripts/quota-gate --provider=codex --weekly-min=50
 ```
 
-### Example 4
-
-User prompt:
-
-> Use Antigravity Claude pool only if its session quota has at least 20% remaining.
-
-Expected action:
-
-```bash
-scripts/quota-gate --provider=antigravity --pool=claude --session-min=20
-```
 
 ## Output Shape
 
