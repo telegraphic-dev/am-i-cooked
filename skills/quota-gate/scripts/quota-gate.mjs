@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { realpathSync } from 'node:fs';
-import { pathToFileURL } from 'node:url';
+import { fileURLToPath } from 'node:url';
 import { discoverClaudeCredentials, getClaudeAccessToken } from './claude-auth.mjs';
 import { fetchClaudeUsage } from './claude-usage.mjs';
 import { discoverCodexCredentials, getCodexAccessToken } from './codex-auth.mjs';
@@ -151,7 +151,21 @@ function errorCode(error) {
   return error instanceof QuotaGateError && error.code ? error.code : 'internal_error';
 }
 
-if (import.meta.url === pathToFileURL(realpathSync(process.argv[1])).href) {
+// Resolve both sides to their realpath before comparing so the "run as main"
+// check holds whether the script is reached through a symlink or not, and
+// regardless of Node's --preserve-symlinks-main (which leaves import.meta.url
+// as the symlink URL while argv[1] may be either form).
+function isMainModule() {
+  const entry = process.argv[1];
+  if (!entry) return false;
+  try {
+    return realpathSync(fileURLToPath(import.meta.url)) === realpathSync(entry);
+  } catch {
+    return false;
+  }
+}
+
+if (isMainModule()) {
   const code = await runQuotaGate();
   process.exitCode = code;
 }
