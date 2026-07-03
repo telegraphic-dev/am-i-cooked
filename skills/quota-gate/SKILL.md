@@ -1,5 +1,5 @@
 ---
-name: claude-quota-gate
+name: quota-gate
 description: Use before expensive, long-running, automated, or quota-sensitive AI coding agent work to check subscription quota and fail closed when quota is low or unknown.
 version: 1.0.0
 author: Vladimir Orany
@@ -10,7 +10,7 @@ metadata:
     related_skills: []
 ---
 
-# Claude Quota Gate
+# Quota Gate
 
 ## Overview
 
@@ -63,7 +63,7 @@ Default thresholds:
 
 User prompt:
 
-> Use claude-quota-gate. Execute this only if weekly quota remaining is above 50%; otherwise do nothing.
+> Use quota-gate. Execute this only if weekly quota remaining is above 50%; otherwise do nothing.
 
 Expected action:
 

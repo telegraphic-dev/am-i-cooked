@@ -7,7 +7,7 @@ import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 
 const execFileAsync = promisify(execFile);
-const launcher = resolve('skills/claude-quota-gate/scripts/quota-gate');
+const launcher = resolve('skills/quota-gate/scripts/quota-gate');
 const currentNode = process.execPath;
 
 async function runLauncher(args, options = {}) {
@@ -23,7 +23,7 @@ async function runLauncher(args, options = {}) {
 }
 
 test('launcher finds Node from NVM when PATH has no node', async () => {
-  const home = await mkdtemp(join(tmpdir(), 'claude-quota-gate-nvm-'));
+  const home = await mkdtemp(join(tmpdir(), 'quota-gate-nvm-'));
   const nodePath = join(home, '.nvm', 'versions', 'node', 'v20.99.0', 'bin', 'node');
   await mkdir(dirname(nodePath), { recursive: true });
   await symlink(currentNode, nodePath);
@@ -42,7 +42,7 @@ test('launcher finds Node from NVM when PATH has no node', async () => {
 });
 
 test('launcher fails closed with JSON when Node >=20 is unavailable', async () => {
-  const home = await mkdtemp(join(tmpdir(), 'claude-quota-gate-no-node-'));
+  const home = await mkdtemp(join(tmpdir(), 'quota-gate-no-node-'));
   const binDir = join(home, 'bin');
   const sedPath = join(binDir, 'sed');
   await mkdir(binDir, { recursive: true });
@@ -66,7 +66,7 @@ test('launcher is executable', async () => {
   const result = await runLauncher(['--no-cache'], {
     env: {
       ...process.env,
-      CLAUDE_CONFIG_DIR: join(await mkdtemp(join(tmpdir(), 'claude-quota-gate-exec-')), 'missing-credentials')
+      CLAUDE_CONFIG_DIR: join(await mkdtemp(join(tmpdir(), 'quota-gate-exec-')), 'missing-credentials')
     }
   });
 

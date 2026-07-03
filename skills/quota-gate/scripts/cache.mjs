@@ -9,7 +9,7 @@ export function defaultCachePath(env = process.env, name = 'usage') {
     ? env.XDG_CACHE_HOME
     : join(homedir(), '.cache');
   const safeName = String(name).replace(/[^a-z0-9_.-]+/gi, '-');
-  return join(base, 'claude-quota-gate', `${safeName}.json`);
+  return join(base, 'quota-gate', `${safeName}.json`);
 }
 
 export async function readUsageCache({ path = defaultCachePath(), ttlSeconds = DEFAULT_TTL_SECONDS, now = Date.now } = {}) {

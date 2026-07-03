@@ -3,10 +3,10 @@ import assert from 'node:assert/strict';
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { normalizeUsageResponse, evaluateQuotaGate } from '../skills/claude-quota-gate/scripts/claude-usage.mjs';
-import { runQuotaGate } from '../skills/claude-quota-gate/scripts/quota-gate.mjs';
-import { redactSecrets } from '../skills/claude-quota-gate/scripts/claude-auth.mjs';
-import { writeUsageCache } from '../skills/claude-quota-gate/scripts/cache.mjs';
+import { normalizeUsageResponse, evaluateQuotaGate } from '../skills/quota-gate/scripts/claude-usage.mjs';
+import { runQuotaGate } from '../skills/quota-gate/scripts/quota-gate.mjs';
+import { redactSecrets } from '../skills/quota-gate/scripts/claude-auth.mjs';
+import { writeUsageCache } from '../skills/quota-gate/scripts/cache.mjs';
 
 const fixture = JSON.parse(await readFile(new URL('./fixtures/usage-response.json', import.meta.url), 'utf8'));
 
@@ -31,7 +31,7 @@ function streams() {
 }
 
 async function tempEnvWithCredentials(oauth = { accessToken: 'access-token', refreshToken: 'refresh-token', expiresAt: Date.now() + 3_600_000 }) {
-  const dir = await mkdtemp(join(tmpdir(), 'claude-quota-gate-test-'));
+  const dir = await mkdtemp(join(tmpdir(), 'quota-gate-test-'));
   await writeFile(join(dir, '.credentials.json'), JSON.stringify({ claudeAiOauth: oauth }), 'utf8');
   return { dir, env: { ...process.env, CLAUDE_CONFIG_DIR: dir, XDG_CACHE_HOME: join(dir, 'cache') } };
 }
@@ -84,7 +84,7 @@ test('CLI returns exit code 2 when weekly threshold is not met', async () => {
 });
 
 test('missing credentials returns exit code 1', async () => {
-  const dir = await mkdtemp(join(tmpdir(), 'claude-quota-gate-empty-'));
+  const dir = await mkdtemp(join(tmpdir(), 'quota-gate-empty-'));
   const io = streams();
   const code = await runQuotaGate({
     argv: ['--no-cache', '--provider=claude'],
@@ -130,9 +130,9 @@ test('invalid response shape returns exit code 1', async () => {
 });
 
 test('cache hit avoids network call', async () => {
-  const dir = await mkdtemp(join(tmpdir(), 'claude-quota-gate-cache-'));
+  const dir = await mkdtemp(join(tmpdir(), 'quota-gate-cache-'));
   const env = { ...process.env, CLAUDE_CONFIG_DIR: dir, XDG_CACHE_HOME: join(dir, 'cache') };
-  await writeUsageCache(normalizeUsageResponse(fixture), { path: join(dir, 'cache', 'claude-quota-gate', 'claude-direct.json') });
+  await writeUsageCache(normalizeUsageResponse(fixture), { path: join(dir, 'cache', 'quota-gate', 'claude-direct.json') });
   const io = streams();
   const code = await runQuotaGate({
     argv: ['--weekly-min=40', '--provider=claude'],
@@ -149,7 +149,7 @@ test('cache hit avoids network call', async () => {
 test('stale cache does not allow success if endpoint fails', async () => {
   const { dir, env } = await tempEnvWithCredentials();
   await writeUsageCache(normalizeUsageResponse(fixture), {
-    path: join(dir, 'cache', 'claude-quota-gate', 'claude-direct.json'),
+    path: join(dir, 'cache', 'quota-gate', 'claude-direct.json'),
     now: () => Date.now() - 10_000
   });
   const io = streams();
@@ -249,7 +249,7 @@ test('unsupported provider ignores any stale cache and fails closed', async () =
     provider_id: 'antigravity',
     weekly: { remaining_pct: 100 },
     five_hour: { remaining_pct: 100 }
-  }, { path: join(dir, 'cache', 'claude-quota-gate', 'antigravity-direct.json') });
+  }, { path: join(dir, 'cache', 'quota-gate', 'antigravity-direct.json') });
   const io = streams();
   const code = await runQuotaGate({
     argv: ['--provider=antigravity'],

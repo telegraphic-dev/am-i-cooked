@@ -1,6 +1,6 @@
-# claude-quota-gate
+# quota-gate
 
-`claude-quota-gate` is an agent quota preflight skill for checking remaining AI coding subscription usage before expensive, long-running, or automated work. It ships a small Node.js gate that returns a stable machine-readable allow/skip decision.
+`quota-gate` is an agent quota preflight skill for checking remaining AI coding subscription usage before expensive, long-running, or automated work. It ships a small Node.js gate that returns a stable machine-readable allow/skip decision.
 
 By default it reads Claude usage directly from local Claude Code credentials. It currently supports Claude Code and Codex directly, using the same local credentials their CLIs already store. Additional provider adapters can be added without requiring a resident OpenUsage app.
 
@@ -18,7 +18,7 @@ For local development:
 git clone https://github.com/telegraphic-dev/am-i-cooked.git
 cd am-i-cooked
 npm test
-skills/claude-quota-gate/scripts/quota-gate --weekly-min=50 --five-hour-min=20
+skills/quota-gate/scripts/quota-gate --weekly-min=50 --five-hour-min=20
 ```
 
 For quota-sensitive prompts, Claude should run the gate before starting the work:
@@ -239,8 +239,8 @@ The script caches normalized usage for 180 seconds by default.
 
 Cache location:
 
-- `${XDG_CACHE_HOME}/claude-quota-gate/<provider>-direct.json`, or
-- `~/.cache/claude-quota-gate/<provider>-direct.json`
+- `${XDG_CACHE_HOME}/quota-gate/<provider>-direct.json`, or
+- `~/.cache/quota-gate/<provider>-direct.json`
 
 If the endpoint fails and a non-stale cached response exists, the script can use the cache. If the cache is stale and the endpoint fails, it exits `1`.
 

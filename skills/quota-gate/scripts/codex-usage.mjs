@@ -10,7 +10,7 @@ export async function fetchCodexUsage(accessToken, { accountId, fetchImpl = glob
   const headers = {
     Authorization: `Bearer ${accessToken}`,
     Accept: 'application/json',
-    'User-Agent': 'claude-quota-gate'
+    'User-Agent': 'quota-gate'
   };
   if (accountId) headers['ChatGPT-Account-Id'] = accountId;
 
