@@ -241,6 +241,29 @@ test('Codex provider gate fails when quota is below threshold', async () => {
   assert.equal(io.json().reason, 'below_threshold');
 });
 
+
+
+test('unsupported provider ignores any stale cache and fails closed', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'unsupported-quota-cache-'));
+  await writeUsageCache({
+    provider_id: 'antigravity',
+    weekly: { remaining_pct: 100 },
+    five_hour: { remaining_pct: 100 }
+  }, { path: join(dir, 'cache', 'claude-quota-gate', 'antigravity-direct.json') });
+  const io = streams();
+  const code = await runQuotaGate({
+    argv: ['--provider=antigravity'],
+    env: { ...process.env, XDG_CACHE_HOME: join(dir, 'cache') },
+    stdout: io.stdout,
+    stderr: io.stderr,
+    fetchImpl: async () => { throw new Error('must not fetch'); }
+  });
+  await rm(dir, { recursive: true, force: true });
+
+  assert.equal(code, 1);
+  assert.equal(io.json().reason, 'unsupported_direct_provider');
+});
+
 test('unsupported direct providers fail closed', async () => {
   const io = streams();
   const code = await runQuotaGate({

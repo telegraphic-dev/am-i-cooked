@@ -69,6 +69,7 @@ export async function runQuotaGate({ argv = process.argv.slice(2), env = process
   };
 
   try {
+    validateProvider(options.provider);
     const usage = await getUsageWithCache({ options, env, fetchImpl, now, debug });
     const allowed = evaluateQuotaGate(usage, thresholds);
     writeJson(stdout, { allowed, reason: allowed ? 'ok' : 'below_threshold', thresholds, usage });
@@ -78,6 +79,10 @@ export async function runQuotaGate({ argv = process.argv.slice(2), env = process
     writeJson(stdout, unknownPayload(errorCode(error)));
     return 1;
   }
+}
+
+function validateProvider(provider) {
+  if (provider !== 'claude' && provider !== 'codex') throw new QuotaGateError('unsupported_direct_provider');
 }
 
 async function getUsageWithCache({ options, env, fetchImpl, now, debug }) {
