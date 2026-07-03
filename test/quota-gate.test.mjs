@@ -3,10 +3,11 @@ import assert from 'node:assert/strict';
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { normalizeUsageResponse, evaluateQuotaGate } from '../skills/quota-gate/scripts/claude-usage.mjs';
+import { normalizeUsageResponse } from '../skills/quota-gate/scripts/claude-usage.mjs';
 import { runQuotaGate } from '../skills/quota-gate/scripts/quota-gate.mjs';
-import { redactSecrets } from '../skills/quota-gate/scripts/claude-auth.mjs';
+import { redactSecrets } from '../skills/quota-gate/scripts/errors.mjs';
 import { writeUsageCache } from '../skills/quota-gate/scripts/cache.mjs';
+import { evaluateQuotaGate } from '../skills/quota-gate/scripts/usage-core.mjs';
 
 const fixture = JSON.parse(await readFile(new URL('./fixtures/usage-response.json', import.meta.url), 'utf8'));
 
@@ -36,7 +37,7 @@ async function tempEnvWithCredentials(oauth = { accessToken: 'access-token', ref
   return { dir, env: { ...process.env, CLAUDE_CONFIG_DIR: dir, XDG_CACHE_HOME: join(dir, 'cache') } };
 }
 
-test('usage normalization converts utilization to remaining percentages', () => {
+test('Claude usage normalization converts utilization to remaining percentages', () => {
   const usage = normalizeUsageResponse(fixture, { now: () => Date.parse('2026-07-02T14:30:00Z') });
   assert.equal(usage.five_hour.used_pct, 25);
   assert.equal(usage.five_hour.remaining_pct, 75);
@@ -246,13 +247,13 @@ test('Codex provider gate fails when quota is below threshold', async () => {
 test('unsupported provider ignores any stale cache and fails closed', async () => {
   const dir = await mkdtemp(join(tmpdir(), 'unsupported-quota-cache-'));
   await writeUsageCache({
-    provider_id: 'antigravity',
+    provider_id: 'unsupported-provider',
     weekly: { remaining_pct: 100 },
     five_hour: { remaining_pct: 100 }
-  }, { path: join(dir, 'cache', 'quota-gate', 'antigravity-direct.json') });
+  }, { path: join(dir, 'cache', 'quota-gate', 'unsupported-provider-direct.json') });
   const io = streams();
   const code = await runQuotaGate({
-    argv: ['--provider=antigravity'],
+    argv: ['--provider=unsupported-provider'],
     env: { ...process.env, XDG_CACHE_HOME: join(dir, 'cache') },
     stdout: io.stdout,
     stderr: io.stderr,
@@ -267,7 +268,7 @@ test('unsupported provider ignores any stale cache and fails closed', async () =
 test('unsupported direct providers fail closed', async () => {
   const io = streams();
   const code = await runQuotaGate({
-    argv: ['--provider=antigravity', '--no-cache'],
+    argv: ['--provider=unsupported-provider', '--no-cache'],
     env: process.env,
     stdout: io.stdout,
     stderr: io.stderr,

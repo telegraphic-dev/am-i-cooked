@@ -21,13 +21,13 @@ npm test
 skills/quota-gate/scripts/quota-gate --weekly-min=50 --five-hour-min=20
 ```
 
-For quota-sensitive prompts, Claude should run the gate before starting the work:
+For Claude Code quota-sensitive prompts, run the default Claude provider before starting the work:
 
 ```bash
 scripts/quota-gate --weekly-min=50 --five-hour-min=20
 ```
 
-For Codex, select it explicitly:
+For Codex quota checks, select the Codex provider explicitly:
 
 ```bash
 scripts/quota-gate --provider=codex --weekly-min=50 --session-min=20
@@ -130,49 +130,65 @@ Options:
 - `--cache-ttl-seconds=<n>`: cache freshness window. Default: `180`.
 - `--debug`: print token-redacted diagnostics to stderr.
 
-## Credential discovery
+## Provider-specific behavior
 
-The gate reuses local Claude Code credentials.
+The gate has a generic decision contract, cache layer, thresholds, and exit-code behavior. Provider-specific code is intentionally limited to credential discovery, token refresh, usage endpoint calls, and response normalization.
 
-### macOS
+### Claude Code credentials
+
+The Claude provider reuses local Claude Code credentials.
+
+#### macOS
 
 Lookup order:
 
 1. Config-specific Keychain service when `CLAUDE_CONFIG_DIR` is set:
    - `Claude Code-credentials-<hash>`
-   - `<hash>` is the first 8 lowercase hex chars of SHA-256 over the NFC-normalized `CLAUDE_CONFIG_DIR`, matching OpenUsage's Claude credential discovery.
+   - `<hash>` is the first 8 lowercase hex chars of SHA-256 over the NFC-normalized `CLAUDE_CONFIG_DIR`, matching Claude Code's config-specific credential lookup.
 2. Default Keychain service:
    - `Claude Code-credentials`
 3. Credentials file:
    - `$CLAUDE_CONFIG_DIR/.credentials.json`, when `CLAUDE_CONFIG_DIR` is set
    - otherwise `~/.claude/.credentials.json`
 
-Keychain access uses the macOS `security` CLI. The script first tries the current-user account-specific item and then the legacy service-only item, matching OpenUsage's source order.
+Keychain access uses the macOS `security` CLI. The script first tries the current-user account-specific item and then the legacy service-only item.
 
-### Linux
+#### Linux
 
 Supported credential files:
 
 - `$CLAUDE_CONFIG_DIR/.credentials.json`
 - `~/.claude/.credentials.json`
 
-### Windows
+#### Windows
 
 Supported credential files:
 
 - `CLAUDE_CONFIG_DIR/.credentials.json`
 - `~/.claude/.credentials.json` resolved through Node's home directory handling
 
+### Codex credentials
+
+The Codex provider reuses local Codex CLI credentials. Lookup order:
+
+1. `$CODEX_HOME/auth.json`, when `CODEX_HOME` is set
+2. `~/.config/codex/auth.json`
+3. `~/.codex/auth.json`
+
+Codex API-key-only auth is not enough for subscription quota checks; the gate fails closed with `codex_api_key_only`.
+
 ## Token refresh
 
-If the access token is missing or expires within five minutes, the script refreshes it with the discovered refresh token:
+### Claude Code
+
+If the Claude access token is missing or expires within five minutes, the script refreshes it with the discovered refresh token:
 
 ```http
 POST https://platform.claude.com/v1/oauth/token
 Content-Type: application/json
 ```
 
-It uses the Claude Code/OpenUsage client id:
+It uses the Claude Code OAuth client id:
 
 ```text
 9d1c250a-e61b-44d9-88ed-5944d1962f5e
@@ -189,9 +205,23 @@ Request body:
 }
 ```
 
-Refreshed tokens are used in memory for the current check. They are not written back to Keychain or credential files.
+Refreshed Claude tokens are used in memory for the current check. They are not written back to Keychain or credential files.
+
+### Codex
+
+When the Codex access token is near expiry, the script refreshes it with the discovered refresh token:
+
+```http
+POST https://auth.openai.com/oauth/token
+Content-Type: application/x-www-form-urlencoded
+Accept: application/json
+```
+
+Refreshed Codex tokens are written back to the Codex `auth.json`, matching CLI-style token persistence.
 
 ## Usage endpoint
+
+### Claude Code
 
 The script calls Claude's OAuth usage endpoint:
 
@@ -206,15 +236,38 @@ Content-Type: application/json
 
 The endpoint is undocumented and may change. Invalid responses fail closed.
 
+### Codex
+
+For Codex, the script calls ChatGPT's usage endpoint:
+
+```http
+GET https://chatgpt.com/backend-api/wham/usage
+Authorization: Bearer <access token>
+ChatGPT-Account-Id: <account id, when present>
+User-Agent: quota-gate
+Accept: application/json
+```
+
+The endpoint is undocumented and may change. Invalid responses fail closed.
+
 ## Usage normalization
 
-The gate handles direct provider API responses. For Claude usage:
+The gate normalizes provider responses into `weekly` and optional `five_hour` windows with `used_pct`, `remaining_pct`, and reset metadata when available.
+
+For Claude usage:
 
 - `five_hour.utilization`: five-hour usage percentage, `0..100`.
 - `seven_day.utilization`: weekly usage percentage, `0..100`.
 - remaining percentage is `100 - utilization`.
 - reset timestamps are preserved when present.
 - optional fields such as `seven_day_sonnet`, `extra_usage`, and `limits` are preserved under `usage.extra`.
+
+For Codex usage:
+
+- `rate_limit.primary_window.used_percent`: session/five-hour usage percentage, when present.
+- `rate_limit.secondary_window.used_percent`: weekly usage percentage, when present.
+- `reset_after_seconds`, `reset_at`, and `limit_window_seconds` are converted into reset and period metadata.
+- optional fields such as `rate_limit_reset_credits`, `additional_rate_limits`, and `balance` are preserved under `usage.extra`.
 
 When `resets_at` is present, the script also adds advisory `pacing` metadata. It uses the known window duration — five hours for `five_hour`, seven days for `weekly` — and the reset time to estimate whether current usage is ahead of a linear budget:
 
@@ -276,19 +329,31 @@ claude
 
 Then rerun the gate.
 
+### `missing_codex_credentials`
+
+Codex credentials were not found. Sign in with Codex CLI first, then rerun:
+
+```bash
+codex
+```
+
+### `codex_api_key_only`
+
+Codex is configured with an API key but not subscription OAuth credentials. The gate cannot check subscription quota from an API key, so it fails closed.
+
 ### Keychain access denied
 
 On macOS, grant Keychain access to the terminal or Claude Code environment running the script. If Keychain access is denied, the script falls back to `.credentials.json` when available; otherwise it fails closed.
 
-### `invalid_usage_response`
+### `invalid_usage_response` / `invalid_codex_usage_response`
 
 The usage endpoint returned a shape the script does not understand. The gate stops instead of guessing quota.
 
-### `usage_endpoint_401` / `usage_endpoint_403`
+### `usage_endpoint_401` / `usage_endpoint_403` / `codex_usage_401` / `codex_usage_403`
 
-The credential is rejected or lacks access to the usage endpoint. Sign in again with Claude Code. Credentials made for inference-only workflows may not include `user:profile`, which is needed for live usage.
+The credential is rejected or lacks access to the usage endpoint. Sign in again with the relevant CLI. Claude credentials made for inference-only workflows may not include `user:profile`, which is needed for live usage.
 
-### `usage_endpoint_429`
+### `usage_endpoint_429` / `codex_usage_429`
 
 The usage endpoint rate-limited the request. The script can use a non-stale cache; otherwise it fails closed.
 

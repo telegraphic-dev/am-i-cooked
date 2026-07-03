@@ -6,7 +6,7 @@ author: Vladimir Orany
 license: MIT
 metadata:
   hermes:
-    tags: [claude-code, codex, antigravity, openusage, quota, usage, automation, guardrail]
+    tags: [claude-code, codex, quota, usage, automation, guardrail]
     related_skills: []
 ---
 
@@ -16,6 +16,8 @@ metadata:
 
 Use this skill before expensive, long-running, automated, or quota-sensitive AI coding agent routines. It runs a bundled Node.js gate that checks subscription quota and returns a machine-readable allow/skip decision. It supports direct Claude Code and Codex usage checks using local CLI credentials; no resident OpenUsage app is required.
 
+Default provider is `claude`, because this skill is currently installed into Claude Code. For Codex quota checks, pass `--provider=codex` explicitly.
+
 The gate fails closed. If quota is low, unknown, credentials are missing, the endpoint errors, or the response shape is invalid, do not continue with the requested work.
 
 ## Required Check
@@ -24,6 +26,12 @@ Before doing the expensive work, run:
 
 ```bash
 scripts/quota-gate --weekly-min=<N> --five-hour-min=<M>
+```
+
+For Codex quota checks, select the Codex provider explicitly:
+
+```bash
+scripts/quota-gate --provider=codex --weekly-min=<N> --session-min=<M>
 ```
 
 Thresholds are minimum **remaining** percentages.
@@ -50,7 +58,7 @@ Default thresholds:
 
 ## Rules
 
-1. Never estimate Claude quota from conversation context.
+1. Never estimate provider quota from conversation context.
 2. Never continue if the quota check fails.
 3. Never ask for manual token input unless `quota-gate` explicitly reports a missing credential/API-key reason for the selected provider.
 4. Treat any non-zero exit as a hard stop for the expensive routine.

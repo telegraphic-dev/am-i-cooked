@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import { createHash } from 'node:crypto';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
+import { QuotaGateError } from './errors.mjs';
 
 const execFileAsync = promisify(execFile);
 
@@ -12,16 +13,6 @@ export const PROD_REFRESH_URL = 'https://platform.claude.com/v1/oauth/token';
 export const PROD_CLIENT_ID = '9d1c250a-e61b-44d9-88ed-5944d1962f5e';
 export const CLAUDE_OAUTH_SCOPE = 'user:profile user:inference user:sessions:claude_code user:mcp_servers user:file_upload';
 export const REFRESH_BUFFER_MS = 5 * 60 * 1000;
-
-export class QuotaGateError extends Error {
-  constructor(code, message = code, options = {}) {
-    super(message);
-    this.name = 'QuotaGateError';
-    this.code = code;
-    this.status = options.status;
-    this.cause = options.cause;
-  }
-}
 
 export function credentialFilePath(env = process.env) {
   return join(expandHome(env.CLAUDE_CONFIG_DIR || '~/.claude'), '.credentials.json');
@@ -40,8 +31,8 @@ export function keychainServiceCandidates(env = process.env) {
 }
 
 export function hashSuffix(value) {
-  // Mirrors OpenUsage's ClaudeAuthStore.hashSuffix: SHA-256 over the normalized config dir,
-  // rendered as lowercase hex and truncated to 8 chars.
+  // Mirrors Claude Code's config-specific credential suffix: SHA-256 over the
+  // normalized config dir, rendered as lowercase hex and truncated to 8 chars.
   return createHash('sha256').update(value.normalize('NFC'), 'utf8').digest('hex').slice(0, 8);
 }
 
@@ -106,7 +97,7 @@ export function parseCredentialText(text) {
   try {
     return JSON.parse(trimmed);
   } catch {
-    // OpenUsage supports a hex fallback; keep the same tolerance for copied keychain blobs.
+    // Some copied Keychain blobs are hex-encoded JSON; accept that format too.
     if (/^(?:[\da-f]{2})+$/i.test(trimmed)) {
       try {
         return JSON.parse(Buffer.from(trimmed, 'hex').toString('utf8'));
@@ -168,9 +159,4 @@ export async function refreshClaudeToken(refreshToken, { fetchImpl = globalThis.
   };
 }
 
-export function redactSecrets(value) {
-  if (typeof value !== 'string') return value;
-  return value
-    .replace(/Bearer\s+[A-Za-z0-9._~+\/-]+/g, 'Bearer [REDACTED]')
-    .replace(/(accessToken|refreshToken|access_token|refresh_token|token)(["'=:\s]+)([^"'\s,}]+)/gi, '$1$2[REDACTED]');
-}
+

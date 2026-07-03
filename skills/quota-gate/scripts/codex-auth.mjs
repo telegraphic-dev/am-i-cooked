@@ -1,7 +1,7 @@
 import { readFile, writeFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
-import { QuotaGateError } from './claude-auth.mjs';
+import { QuotaGateError } from './errors.mjs';
 
 export const CODEX_CLIENT_ID = 'app_EMoamEEZ73f0CkXaXp7hrann';
 export const CODEX_REFRESH_URL = 'https://auth.openai.com/oauth/token';
