@@ -4,11 +4,12 @@ import { homedir } from 'node:os';
 
 const DEFAULT_TTL_SECONDS = 180;
 
-export function defaultCachePath(env = process.env) {
+export function defaultCachePath(env = process.env, name = 'usage') {
   const base = env.XDG_CACHE_HOME && env.XDG_CACHE_HOME.trim()
     ? env.XDG_CACHE_HOME
     : join(homedir(), '.cache');
-  return join(base, 'claude-quota-gate', 'usage.json');
+  const safeName = String(name).replace(/[^a-z0-9_.-]+/gi, '-');
+  return join(base, 'quota-gate', `${safeName}.json`);
 }
 
 export async function readUsageCache({ path = defaultCachePath(), ttlSeconds = DEFAULT_TTL_SECONDS, now = Date.now } = {}) {

@@ -1,15 +1,15 @@
-# claude-quota-gate
+# quota-gate
 
-`claude-quota-gate` is a Claude Code skill for checking remaining Claude subscription usage before expensive, long-running, or automated work. It ships a small Node.js gate that reads the local Claude Code OAuth credentials, queries Claude usage, and returns a stable machine-readable allow/skip decision.
+`quota-gate` is an agent quota preflight skill for checking remaining AI coding subscription usage before expensive, long-running, or automated work. It ships a small Node.js gate that returns a stable machine-readable allow/skip decision.
 
-The implementation builds on [OpenUsage](https://github.com/robinebers/openusage), which documented the Claude Code credential locations, macOS Keychain service naming, OAuth refresh client details, and current usage response shape.
+By default it reads Claude usage directly from local Claude Code credentials. It currently supports Claude Code and Codex directly, using the same local credentials their CLIs already store. Additional provider adapters can be added without requiring a resident OpenUsage app.
 
 ## Installation
 
 Install the skill with [skills.sh](https://skills.sh):
 
 ```bash
-npx --yes skills add telegraphic-dev/am-i-cooked --global --agent claude-code
+npx --yes skills add telegraphic-dev/am-i-cooked --global --agent claude-code --skill quota-gate
 ```
 
 For local development:
@@ -18,13 +18,19 @@ For local development:
 git clone https://github.com/telegraphic-dev/am-i-cooked.git
 cd am-i-cooked
 npm test
-skills/claude-quota-gate/scripts/quota-gate --weekly-min=50 --five-hour-min=20
+skills/quota-gate/scripts/quota-gate --weekly-min=50 --five-hour-min=20
 ```
 
 For quota-sensitive prompts, Claude should run the gate before starting the work:
 
 ```bash
 scripts/quota-gate --weekly-min=50 --five-hour-min=20
+```
+
+For Codex, select it explicitly:
+
+```bash
+scripts/quota-gate --provider=codex --weekly-min=50 --session-min=20
 ```
 
 Thresholds are minimum **remaining** percentages.
@@ -105,6 +111,7 @@ or:
 
 ```bash
 scripts/quota-gate \
+  --provider=claude \
   --weekly-min=50 \
   --five-hour-min=20 \
   --json \
@@ -115,8 +122,9 @@ scripts/quota-gate \
 
 Options:
 
+- `--provider=<claude|codex>`: provider to check. Default: `claude`.
 - `--weekly-min=<0..100>`: minimum weekly remaining percentage. Default: `50`.
-- `--five-hour-min=<0..100>`: minimum five-hour remaining percentage. Default: `0`.
+- `--five-hour-min=<0..100>` / `--session-min=<0..100>`: minimum session/five-hour remaining percentage. Default: `0`.
 - `--json`: accepted for clarity; JSON output is always enabled.
 - `--no-cache`: bypass read/write cache.
 - `--cache-ttl-seconds=<n>`: cache freshness window. Default: `180`.
@@ -200,7 +208,7 @@ The endpoint is undocumented and may change. Invalid responses fail closed.
 
 ## Usage normalization
 
-The gate handles the response shape used by OpenUsage:
+The gate handles direct provider API responses. For Claude usage:
 
 - `five_hour.utilization`: five-hour usage percentage, `0..100`.
 - `seven_day.utilization`: weekly usage percentage, `0..100`.
@@ -231,8 +239,8 @@ The script caches normalized usage for 180 seconds by default.
 
 Cache location:
 
-- `${XDG_CACHE_HOME}/claude-quota-gate/usage.json`, or
-- `~/.cache/claude-quota-gate/usage.json`
+- `${XDG_CACHE_HOME}/quota-gate/<provider>-direct.json`, or
+- `~/.cache/quota-gate/<provider>-direct.json`
 
 If the endpoint fails and a non-stale cached response exists, the script can use the cache. If the cache is stale and the endpoint fails, it exits `1`.
 

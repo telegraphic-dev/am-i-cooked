@@ -1,7 +1,7 @@
 {
-  "name": "claude-quota-gate",
+  "name": "quota-gate",
   "version": "1.0.0",
-  "description": "Claude Code skill and quota gate script for checking Claude subscription usage before expensive work.",
+  "description": "Quota gate skill and script for checking AI coding subscription usage before expensive work.",
   "type": "module",
   "private": true,
   "scripts": {
