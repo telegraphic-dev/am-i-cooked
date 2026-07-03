@@ -1,4 +1,6 @@
 #!/usr/bin/env node
+import { realpathSync } from 'node:fs';
+import { pathToFileURL } from 'node:url';
 import { discoverClaudeCredentials, getClaudeAccessToken } from './claude-auth.mjs';
 import { fetchClaudeUsage } from './claude-usage.mjs';
 import { discoverCodexCredentials, getCodexAccessToken } from './codex-auth.mjs';
@@ -149,7 +151,7 @@ function errorCode(error) {
   return error instanceof QuotaGateError && error.code ? error.code : 'internal_error';
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (import.meta.url === pathToFileURL(realpathSync(process.argv[1])).href) {
   const code = await runQuotaGate();
   process.exitCode = code;
 }
