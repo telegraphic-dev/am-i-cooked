@@ -1,0 +1,64 @@
+#!/bin/sh
+set -u
+
+case $0 in
+  */*) script_parent=${0%/*} ;;
+  *) script_parent=. ;;
+esac
+SCRIPT_DIR=$(CDPATH= cd -- "$script_parent" 2>/dev/null && pwd)
+ENTRYPOINT="$SCRIPT_DIR/quota-gate.mjs"
+
+fail_json() {
+  reason=$1
+  detail=${2:-}
+  if [ -n "$detail" ]; then
+    printf '{"allowed":false,"reason":"%s","detail":"%s"}\n' "$reason" "$detail"
+  else
+    printf '{"allowed":false,"reason":"%s"}\n' "$reason"
+  fi
+  exit 1
+}
+
+is_usable_node() {
+  candidate=$1
+  [ -x "$candidate" ] || return 1
+  "$candidate" -e 'const major = Number(process.versions.node.split(".")[0]); process.exit(major >= 20 ? 0 : 1);' >/dev/null 2>&1
+}
+
+try_node() {
+  candidate=$1
+  if is_usable_node "$candidate"; then
+    printf '%s\n' "$candidate"
+    return 0
+  fi
+  return 1
+}
+
+find_node() {
+  if command -v node >/dev/null 2>&1; then
+    candidate=$(command -v node)
+    try_node "$candidate" && return 0
+  fi
+
+  if command -v nodejs >/dev/null 2>&1; then
+    candidate=$(command -v nodejs)
+    try_node "$candidate" && return 0
+  fi
+
+  nvm_root=${NVM_DIR:-${HOME:-}/.nvm}
+  if [ -n "$nvm_root" ] && [ -d "$nvm_root/versions/node" ]; then
+    for candidate in "$nvm_root"/versions/node/v*/bin/node; do
+      [ -e "$candidate" ] || continue
+      try_node "$candidate" && return 0
+    done
+  fi
+
+  return 1
+}
+
+NODE_BIN=$(find_node || true)
+if [ -z "$NODE_BIN" ]; then
+  fail_json "node_runtime_missing" "Node.js >=20 was not found on PATH, as nodejs, or under NVM_DIR/HOME/.nvm."
+fi
+
+exec "$NODE_BIN" "$ENTRYPOINT" "$@"

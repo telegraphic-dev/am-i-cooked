@@ -18,13 +18,13 @@ For local development:
 git clone https://github.com/telegraphic-dev/am-i-cooked.git
 cd am-i-cooked
 npm test
-node skills/claude-quota-gate/scripts/quota-gate.mjs --weekly-min=50 --five-hour-min=20
+skills/claude-quota-gate/scripts/quota-gate --weekly-min=50 --five-hour-min=20
 ```
 
 For quota-sensitive prompts, Claude should run the gate before starting the work:
 
 ```bash
-node scripts/quota-gate.mjs --weekly-min=50 --five-hour-min=20
+scripts/quota-gate --weekly-min=50 --five-hour-min=20
 ```
 
 Thresholds are minimum **remaining** percentages.
@@ -104,7 +104,7 @@ or:
 ## CLI options
 
 ```bash
-node scripts/quota-gate.mjs \
+scripts/quota-gate \
   --weekly-min=50 \
   --five-hour-min=20 \
   --json \
@@ -239,13 +239,13 @@ If the endpoint fails and a non-stale cached response exists, the script can use
 Disable cache:
 
 ```bash
-node scripts/quota-gate.mjs --no-cache
+scripts/quota-gate --no-cache
 ```
 
 Set TTL:
 
 ```bash
-node scripts/quota-gate.mjs --cache-ttl-seconds=60
+scripts/quota-gate --cache-ttl-seconds=60
 ```
 
 ## Security

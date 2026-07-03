@@ -23,7 +23,7 @@ The gate fails closed. If quota is low, unknown, credentials are missing, the en
 Before doing the expensive work, run:
 
 ```bash
-node scripts/quota-gate.mjs --weekly-min=<N> --five-hour-min=<M>
+scripts/quota-gate --weekly-min=<N> --five-hour-min=<M>
 ```
 
 Thresholds are minimum **remaining** percentages.
@@ -52,7 +52,7 @@ Default thresholds:
 
 1. Never estimate Claude quota from conversation context.
 2. Never continue if the quota check fails.
-3. Never ask for manual token input unless `quota-gate.mjs` explicitly reports `missing_claude_code_credentials`.
+3. Never ask for manual token input unless `quota-gate` explicitly reports `missing_claude_code_credentials`.
 4. Treat any non-zero exit as a hard stop for the expensive routine.
 5. Do not use MCP for this skill.
 6. Do not print or request access tokens or refresh tokens.
@@ -68,7 +68,7 @@ User prompt:
 Expected action:
 
 ```bash
-node scripts/quota-gate.mjs --weekly-min=50
+scripts/quota-gate --weekly-min=50
 ```
 
 If exit `0`, continue. If exit `2`, return only:
@@ -92,7 +92,7 @@ User prompt:
 Expected action:
 
 ```bash
-node scripts/quota-gate.mjs --weekly-min=60 --five-hour-min=30
+scripts/quota-gate --weekly-min=60 --five-hour-min=30
 ```
 
 ## Output Shape
@@ -163,7 +163,7 @@ or:
 
 ## Verification Checklist
 
-- [ ] Ran `node scripts/quota-gate.mjs` before expensive work.
+- [ ] Ran `scripts/quota-gate` before expensive work.
 - [ ] Continued only on exit `0`.
 - [ ] Returned the exact low-quota JSON on exit `2`.
 - [ ] Returned the exact unknown-quota JSON on exit `1`.
