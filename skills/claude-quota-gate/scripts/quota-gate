@@ -1,0 +1,16 @@
+#!/bin/sh
+set -u
+
+case $0 in
+  */*) script_parent=${0%/*} ;;
+  *) script_parent=. ;;
+esac
+SCRIPT_DIR=$(CDPATH= cd -- "$script_parent" 2>/dev/null && pwd)
+TARGET="$SCRIPT_DIR/../../quota-gate/scripts/quota-gate"
+
+if [ ! -x "$TARGET" ]; then
+  printf '{"allowed":false,"reason":"quota_gate_alias_target_missing","detail":"Install or update the renamed quota-gate skill."}\n'
+  exit 1
+fi
+
+exec "$TARGET" "$@"
