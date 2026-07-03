@@ -132,7 +132,7 @@ test('invalid response shape returns exit code 1', async () => {
 test('cache hit avoids network call', async () => {
   const dir = await mkdtemp(join(tmpdir(), 'claude-quota-gate-cache-'));
   const env = { ...process.env, CLAUDE_CONFIG_DIR: dir, XDG_CACHE_HOME: join(dir, 'cache') };
-  await writeUsageCache(normalizeUsageResponse(fixture), { path: join(dir, 'cache', 'claude-quota-gate', 'claude-default-direct.json') });
+  await writeUsageCache(normalizeUsageResponse(fixture), { path: join(dir, 'cache', 'claude-quota-gate', 'claude-direct.json') });
   const io = streams();
   const code = await runQuotaGate({
     argv: ['--weekly-min=40', '--provider=claude'],
@@ -149,7 +149,7 @@ test('cache hit avoids network call', async () => {
 test('stale cache does not allow success if endpoint fails', async () => {
   const { dir, env } = await tempEnvWithCredentials();
   await writeUsageCache(normalizeUsageResponse(fixture), {
-    path: join(dir, 'cache', 'claude-quota-gate', 'claude-default-direct.json'),
+    path: join(dir, 'cache', 'claude-quota-gate', 'claude-direct.json'),
     now: () => Date.now() - 10_000
   });
   const io = streams();

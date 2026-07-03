@@ -10,7 +10,6 @@ export function parseArgs(argv) {
     weekly_min_remaining_pct: 50,
     five_hour_min_remaining_pct: 0,
     provider: 'claude',
-    pool: 'default',
     json: true,
     noCache: false,
     cacheTtlSeconds: DEFAULT_TTL_SECONDS,
@@ -25,7 +24,6 @@ export function parseArgs(argv) {
     else if (arg.startsWith('--five-hour-min=')) options.five_hour_min_remaining_pct = parseThreshold(arg, '--five-hour-min=');
     else if (arg.startsWith('--session-min=')) options.five_hour_min_remaining_pct = parseThreshold(arg, '--session-min=');
     else if (arg.startsWith('--provider=')) options.provider = parseIdentifier(arg, '--provider=');
-    else if (arg.startsWith('--pool=')) options.pool = parseIdentifier(arg, '--pool=');
     else if (arg.startsWith('--cache-ttl-seconds=')) {
       const raw = Number(arg.slice('--cache-ttl-seconds='.length));
       if (!Number.isFinite(raw) || raw < 0) throw new QuotaGateError('invalid_cache_ttl_seconds');
@@ -129,7 +127,7 @@ async function fetchUsage({ options, env, fetchImpl, now, debug }) {
 }
 
 function cacheName(options) {
-  return `${options.provider}-${options.pool}-direct`;
+  return `${options.provider}-direct`;
 }
 
 function writeJson(stream, payload) {

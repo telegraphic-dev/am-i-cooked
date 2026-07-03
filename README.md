@@ -239,8 +239,8 @@ The script caches normalized usage for 180 seconds by default.
 
 Cache location:
 
-- `${XDG_CACHE_HOME}/claude-quota-gate/<provider>-<pool>-direct.json`, or
-- `~/.cache/claude-quota-gate/<provider>-<pool>-direct.json`
+- `${XDG_CACHE_HOME}/claude-quota-gate/<provider>-direct.json`, or
+- `~/.cache/claude-quota-gate/<provider>-direct.json`
 
 If the endpoint fails and a non-stale cached response exists, the script can use the cache. If the cache is stale and the endpoint fails, it exits `1`.
 
