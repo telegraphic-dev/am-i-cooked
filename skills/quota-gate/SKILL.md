@@ -28,6 +28,33 @@ Before doing the expensive work, run:
 scripts/quota-gate --weekly-min=<N> --five-hour-min=<M>
 ```
 
+For automatic Claude Code enforcement, configure the bundled hook as a `UserPromptSubmit` command hook. The hook runs this gate only when the prompt looks quota-sensitive, and blocks the prompt if quota is low or unknown:
+
+```json
+{
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/skills/quota-gate/scripts/claude-quota-hook"
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+Optional environment controls:
+
+- `QUOTA_GATE_WEEKLY_MIN=<0..100>`
+- `QUOTA_GATE_FIVE_HOUR_MIN=<0..100>`
+- `QUOTA_GATE_HOOK_PATTERN=<javascript-regex>` to override the trigger heuristic
+- `QUOTA_GATE_HOOK_ALWAYS=1` to check every prompt
+- `QUOTA_GATE_NO_CACHE=1` to bypass the usage cache
+
 For Codex quota checks, select the Codex provider explicitly:
 
 ```bash
@@ -184,8 +211,9 @@ or:
 
 ## Verification Checklist
 
-- [ ] Ran `scripts/quota-gate` before expensive work.
+- [ ] Ran `scripts/quota-gate` before expensive work, or verified the Claude Code hook ran it.
 - [ ] Continued only on exit `0`.
 - [ ] Returned the exact low-quota JSON on exit `2`.
 - [ ] Returned the exact unknown-quota JSON on exit `1`.
+- [ ] If using the hook, it blocks quota-sensitive prompts on low/unknown quota and stays silent when quota is sufficient.
 - [ ] Did not ask for or print OAuth tokens, API keys, or credential files.

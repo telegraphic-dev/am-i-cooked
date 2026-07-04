@@ -27,6 +27,34 @@ For Claude Code quota-sensitive prompts, run the default Claude provider before 
 scripts/quota-gate --weekly-min=50 --five-hour-min=20
 ```
 
+For automatic Claude Code enforcement, install the bundled `UserPromptSubmit` hook. The hook stays silent for ordinary prompts, runs `quota-gate` for quota-sensitive prompts, and blocks the prompt when quota is low or unknown:
+
+```json
+{
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/skills/quota-gate/scripts/claude-quota-hook"
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+Tune hook thresholds with environment variables in the Claude Code process:
+
+```bash
+export QUOTA_GATE_WEEKLY_MIN=50
+export QUOTA_GATE_FIVE_HOUR_MIN=20
+```
+
+The default trigger regex is intentionally conservative. Override it with `QUOTA_GATE_HOOK_PATTERN`, or set `QUOTA_GATE_HOOK_ALWAYS=1` to check every prompt.
+
 For Codex quota checks, select the Codex provider explicitly:
 
 ```bash

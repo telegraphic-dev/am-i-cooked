@@ -1,0 +1,39 @@
+#!/bin/sh
+set -u
+
+case $0 in
+  */*) script_parent=${0%/*} ;;
+  *) script_parent=. ;;
+esac
+SCRIPT_DIR=$(CDPATH= cd -- "$script_parent" 2>/dev/null && pwd)
+ENTRYPOINT="$SCRIPT_DIR/claude-quota-hook.mjs"
+
+find_node() {
+  if command -v node >/dev/null 2>&1; then
+    candidate=$(command -v node)
+    "$candidate" -e 'const major = Number(process.versions.node.split(".")[0]); process.exit(major >= 20 ? 0 : 1);' >/dev/null 2>&1 && { printf '%s\n' "$candidate"; return 0; }
+  fi
+
+  if command -v nodejs >/dev/null 2>&1; then
+    candidate=$(command -v nodejs)
+    "$candidate" -e 'const major = Number(process.versions.node.split(".")[0]); process.exit(major >= 20 ? 0 : 1);' >/dev/null 2>&1 && { printf '%s\n' "$candidate"; return 0; }
+  fi
+
+  nvm_root=${NVM_DIR:-${HOME:-}/.nvm}
+  if [ -n "$nvm_root" ] && [ -d "$nvm_root/versions/node" ]; then
+    for candidate in "$nvm_root"/versions/node/v*/bin/node; do
+      [ -e "$candidate" ] || continue
+      "$candidate" -e 'const major = Number(process.versions.node.split(".")[0]); process.exit(major >= 20 ? 0 : 1);' >/dev/null 2>&1 && { printf '%s\n' "$candidate"; return 0; }
+    done
+  fi
+
+  return 1
+}
+
+NODE_BIN=$(find_node || true)
+if [ -z "$NODE_BIN" ]; then
+  printf '{"decision":"block","reason":"quota-gate blocked this Claude Code prompt: node_runtime_missing"}\n'
+  exit 0
+fi
+
+exec "$NODE_BIN" "$ENTRYPOINT" "$@"
