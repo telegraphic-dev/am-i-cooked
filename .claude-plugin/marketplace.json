@@ -1,0 +1,16 @@
+{
+  "name": "am-i-cooked",
+  "metadata": {
+    "description": "Claude Code plugins and skills for fail-closed AI coding quota checks."
+  },
+  "owner": {
+    "name": "Telegraphic Developer"
+  },
+  "plugins": [
+    {
+      "name": "quota-gate",
+      "source": "./",
+      "description": "Fail-closed quota checks for Claude Code prompts before expensive, long-running, automated, or quota-sensitive work."
+    }
+  ]
+}

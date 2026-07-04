@@ -6,10 +6,11 @@ By default it reads Claude usage directly from local Claude Code credentials. It
 
 ## Installation
 
-Install as a Claude Code plugin when you want automatic hook enforcement:
+Install as a Claude Code plugin when you want automatic hook enforcement. First add this repository as a plugin marketplace, then install the plugin from that marketplace:
 
 ```bash
-claude plugin install quota-gate
+claude plugin marketplace add telegraphic-dev/am-i-cooked
+claude plugin install quota-gate@am-i-cooked
 ```
 
 For local development or direct testing from a checkout:
