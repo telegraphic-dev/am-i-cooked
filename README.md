@@ -6,13 +6,26 @@ By default it reads Claude usage directly from local Claude Code credentials. It
 
 ## Installation
 
-Install the skill with [skills.sh](https://skills.sh):
+Install as a Claude Code plugin when you want automatic hook enforcement:
+
+```bash
+claude plugin install quota-gate
+```
+
+For local development or direct testing from a checkout:
+
+```bash
+claude --plugin-dir .
+claude plugin validate .
+```
+
+Install only the skill documentation with [skills.sh](https://skills.sh) when you want the portable skill/script package without Claude Code hook registration:
 
 ```bash
 npx --yes skills add telegraphic-dev/am-i-cooked --global --agent claude-code --agent codex --skill quota-gate
 ```
 
-For local development:
+For repository development:
 
 ```bash
 git clone https://github.com/telegraphic-dev/am-i-cooked.git
@@ -27,24 +40,15 @@ For Claude Code quota-sensitive prompts, run the default Claude provider before 
 scripts/quota-gate --weekly-min=50 --five-hour-min=20
 ```
 
-For automatic Claude Code enforcement, install the bundled `UserPromptSubmit` hook. The hook stays silent for ordinary prompts, runs `quota-gate` for quota-sensitive prompts, and blocks the prompt when quota is low or unknown:
+For automatic Claude Code enforcement, use the bundled plugin hook. When the plugin is enabled, Claude Code reads `hooks/hooks.json` and runs the `UserPromptSubmit` hook automatically.
 
-```json
-{
-  "hooks": {
-    "UserPromptSubmit": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "~/.claude/skills/quota-gate/scripts/claude-quota-hook"
-          }
-        ]
-      }
-    ]
-  }
-}
+The plugin hook command is:
+
+```bash
+${CLAUDE_PLUGIN_ROOT}/skills/quota-gate/scripts/claude-quota-hook
 ```
+
+The hook conforms to Claude Code's `UserPromptSubmit` output contract: it exits `0`, writes nothing when the prompt should proceed, and writes only a JSON object like `{"decision":"block","reason":"..."}` when quota is low or unknown. Do not wrap it in shell profiles or commands that print extra text.
 
 Tune hook thresholds with environment variables in the Claude Code process:
 

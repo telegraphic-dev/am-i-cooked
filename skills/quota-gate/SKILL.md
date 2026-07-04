@@ -28,24 +28,13 @@ Before doing the expensive work, run:
 scripts/quota-gate --weekly-min=<N> --five-hour-min=<M>
 ```
 
-For automatic Claude Code enforcement, configure the bundled hook as a `UserPromptSubmit` command hook. The hook runs this gate only when the prompt looks quota-sensitive, and blocks the prompt if quota is low or unknown:
+For automatic Claude Code enforcement, install/enable the bundled plugin. Claude Code reads `hooks/hooks.json` from the plugin and runs the `UserPromptSubmit` hook automatically. The hook command is:
 
-```json
-{
-  "hooks": {
-    "UserPromptSubmit": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "~/.claude/skills/quota-gate/scripts/claude-quota-hook"
-          }
-        ]
-      }
-    ]
-  }
-}
+```bash
+${CLAUDE_PLUGIN_ROOT}/skills/quota-gate/scripts/claude-quota-hook
 ```
+
+The hook runs this gate only when the prompt looks quota-sensitive, and blocks the prompt if quota is low or unknown. It conforms to Claude Code's expected format: exit `0`, no stdout to allow, and stdout containing only `{"decision":"block","reason":"..."}` to block.
 
 Optional environment controls:
 
