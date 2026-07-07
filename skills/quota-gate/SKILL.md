@@ -36,15 +36,17 @@ ${CLAUDE_PLUGIN_ROOT}/skills/quota-gate/scripts/claude-quota-hook
 
 The hook runs this gate only when the prompt looks quota-sensitive, and blocks the prompt if quota is below its hard floor or unknown. It conforms to Claude Code's expected format: exit `0`, no stdout to allow, and stdout containing only `{"decision":"block","reason":"..."}` to block.
 
-The plugin hook uses conservative default hard floors (`10%` weekly and `10%` five-hour remaining) so it only stops expensive prompts near exhaustion. The standalone `quota-gate` command keeps stricter defaults for explicit/manual checks.
+The plugin hook uses conservative default hard floors (`10%` weekly and `10%` five-hour remaining) so it only stops expensive prompts near exhaustion. The standalone `quota-gate` command keeps a stricter weekly default for explicit/manual checks.
 
 Optional environment controls:
 
-- `QUOTA_GATE_WEEKLY_MIN=<0..100>`
-- `QUOTA_GATE_FIVE_HOUR_MIN=<0..100>`
-- `QUOTA_GATE_HOOK_PATTERN=<javascript-regex>` to override the trigger heuristic
-- `QUOTA_GATE_HOOK_ALWAYS=1` to check every prompt
-- `QUOTA_GATE_NO_CACHE=1` to bypass the usage cache
+- `QUOTA_GATE_WEEKLY_MIN=<0..100>` to override the hook's weekly hard floor. Default: `10`.
+- `QUOTA_GATE_FIVE_HOUR_MIN=<0..100>` to override the hook's five-hour hard floor. Default: `10`.
+- `QUOTA_GATE_CACHE_TTL_SECONDS=<n>` to set the usage cache freshness window.
+- `QUOTA_GATE_NO_CACHE=1` to bypass the usage cache.
+- `QUOTA_GATE_DEBUG=1` to print token-redacted diagnostics to stderr.
+- `QUOTA_GATE_HOOK_PATTERN=<javascript-regex>` to override the trigger heuristic.
+- `QUOTA_GATE_HOOK_ALWAYS=1` to check every prompt.
 
 For Codex quota checks, select the Codex provider explicitly:
 
