@@ -31,9 +31,9 @@ function shouldCheckQuota(prompt, env = process.env) {
 }
 
 function gateArgs(env = process.env) {
-  const args = ['--provider=claude'];
-  if (env.QUOTA_GATE_WEEKLY_MIN) args.push(`--weekly-min=${env.QUOTA_GATE_WEEKLY_MIN}`);
-  if (env.QUOTA_GATE_FIVE_HOUR_MIN) args.push(`--five-hour-min=${env.QUOTA_GATE_FIVE_HOUR_MIN}`);
+  const weeklyMin = env.QUOTA_GATE_WEEKLY_MIN || '10';
+  const fiveHourMin = env.QUOTA_GATE_FIVE_HOUR_MIN || '10';
+  const args = ['--provider=claude', `--weekly-min=${weeklyMin}`, `--five-hour-min=${fiveHourMin}`];
   if (env.QUOTA_GATE_CACHE_TTL_SECONDS) args.push(`--cache-ttl-seconds=${env.QUOTA_GATE_CACHE_TTL_SECONDS}`);
   if (env.QUOTA_GATE_NO_CACHE === '1' || env.QUOTA_GATE_NO_CACHE === 'true') args.push('--no-cache');
   if (env.QUOTA_GATE_DEBUG === '1' || env.QUOTA_GATE_DEBUG === 'true') args.push('--debug');

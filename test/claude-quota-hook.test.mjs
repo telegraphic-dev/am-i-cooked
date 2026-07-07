@@ -48,6 +48,11 @@ test('shouldCheckQuota only triggers on quota-sensitive prompts by default', () 
 });
 
 test('gateArgs maps hook environment to quota-gate CLI flags', () => {
+  assert.deepEqual(gateArgs({}), [
+    '--provider=claude',
+    '--weekly-min=10',
+    '--five-hour-min=10'
+  ]);
   assert.deepEqual(gateArgs({ QUOTA_GATE_WEEKLY_MIN: '60', QUOTA_GATE_FIVE_HOUR_MIN: '25', QUOTA_GATE_NO_CACHE: 'true' }), [
     '--provider=claude',
     '--weekly-min=60',

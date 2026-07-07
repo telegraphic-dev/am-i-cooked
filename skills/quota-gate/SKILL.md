@@ -34,7 +34,9 @@ For automatic Claude Code enforcement, install/enable the bundled plugin. Claude
 ${CLAUDE_PLUGIN_ROOT}/skills/quota-gate/scripts/claude-quota-hook
 ```
 
-The hook runs this gate only when the prompt looks quota-sensitive, and blocks the prompt if quota is low or unknown. It conforms to Claude Code's expected format: exit `0`, no stdout to allow, and stdout containing only `{"decision":"block","reason":"..."}` to block.
+The hook runs this gate only when the prompt looks quota-sensitive, and blocks the prompt if quota is below its hard floor or unknown. It conforms to Claude Code's expected format: exit `0`, no stdout to allow, and stdout containing only `{"decision":"block","reason":"..."}` to block.
+
+The plugin hook uses conservative default hard floors (`10%` weekly and `10%` five-hour remaining) so it only stops expensive prompts near exhaustion. The standalone `quota-gate` command keeps stricter defaults for explicit/manual checks.
 
 Optional environment controls:
 

@@ -49,13 +49,15 @@ The plugin hook command is:
 ${CLAUDE_PLUGIN_ROOT}/skills/quota-gate/scripts/claude-quota-hook
 ```
 
-The hook conforms to Claude Code's `UserPromptSubmit` output contract: it exits `0`, writes nothing when the prompt should proceed, and writes only a JSON object like `{"decision":"block","reason":"..."}` when quota is low or unknown. Do not wrap it in shell profiles or commands that print extra text.
+The hook conforms to Claude Code's `UserPromptSubmit` output contract: it exits `0`, writes nothing when the prompt should proceed, and writes only a JSON object like `{"decision":"block","reason":"..."}` when quota is below the hook's hard floor or unknown. It does not block merely because quota is being consumed. Do not wrap it in shell profiles or commands that print extra text.
+
+The plugin hook uses conservative default hard floors (`10%` weekly and `10%` five-hour remaining) so it only stops expensive prompts near exhaustion. The standalone `quota-gate` command keeps stricter defaults for explicit/manual checks.
 
 Tune hook thresholds with environment variables in the Claude Code process:
 
 ```bash
-export QUOTA_GATE_WEEKLY_MIN=50
-export QUOTA_GATE_FIVE_HOUR_MIN=20
+export QUOTA_GATE_WEEKLY_MIN=10
+export QUOTA_GATE_FIVE_HOUR_MIN=10
 ```
 
 The default trigger regex is intentionally conservative. Override it with `QUOTA_GATE_HOOK_PATTERN`, or set `QUOTA_GATE_HOOK_ALWAYS=1` to check every prompt.
