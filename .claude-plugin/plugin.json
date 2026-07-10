@@ -1,0 +1,8 @@
+{
+  "name": "quota-gate",
+  "description": "Fail-closed quota checks for Claude Code prompts before expensive, long-running, automated, or quota-sensitive work.",
+  "version": "1.0.0",
+  "author": {
+    "name": "Vladimir Orany"
+  }
+}

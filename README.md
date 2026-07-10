@@ -6,13 +6,27 @@ By default it reads Claude usage directly from local Claude Code credentials. It
 
 ## Installation
 
-Install the skill with [skills.sh](https://skills.sh):
+Install as a Claude Code plugin when you want automatic hook enforcement. First add this repository as a plugin marketplace, then install the plugin from that marketplace:
+
+```bash
+claude plugin marketplace add telegraphic-dev/am-i-cooked
+claude plugin install quota-gate@am-i-cooked
+```
+
+For local development or direct testing from a checkout:
+
+```bash
+claude --plugin-dir .
+claude plugin validate .
+```
+
+Install only the skill documentation with [skills.sh](https://skills.sh) when you want the portable skill/script package without Claude Code hook registration:
 
 ```bash
 npx --yes skills add telegraphic-dev/am-i-cooked --global --agent claude-code --agent codex --skill quota-gate
 ```
 
-For local development:
+For repository development:
 
 ```bash
 git clone https://github.com/telegraphic-dev/am-i-cooked.git
@@ -21,11 +35,43 @@ npm test
 skills/quota-gate/scripts/quota-gate --weekly-min=50 --five-hour-min=20
 ```
 
-For Claude Code quota-sensitive prompts, run the default Claude provider before starting the work:
+For Claude Code quota-sensitive prompts, run the default Claude provider before starting the work. These commands are skill-relative; from a repository checkout, prefix them with `skills/quota-gate/`:
 
 ```bash
 scripts/quota-gate --weekly-min=50 --five-hour-min=20
 ```
+
+For automatic Claude Code enforcement, use the bundled plugin hook. When the plugin is enabled, Claude Code reads `hooks/hooks.json` and runs the `UserPromptSubmit` hook automatically.
+
+The plugin hook command is:
+
+```bash
+${CLAUDE_PLUGIN_ROOT}/skills/quota-gate/scripts/claude-quota-hook
+```
+
+The hook conforms to Claude Code's `UserPromptSubmit` output contract: it exits `0`, writes nothing when the prompt should proceed, and writes only a JSON object like `{"decision":"block","reason":"..."}` when quota is below the hook's hard floor or unknown. It does not block merely because quota is being consumed. Do not wrap it in shell profiles or commands that print extra text.
+
+The plugin hook uses conservative default hard floors (`10%` weekly and `10%` five-hour remaining) so it only stops expensive prompts near exhaustion. The standalone `quota-gate` command keeps a stricter weekly default for explicit/manual checks.
+
+Tune hook behavior with environment variables in the Claude Code process:
+
+```bash
+export QUOTA_GATE_WEEKLY_MIN=25
+export QUOTA_GATE_FIVE_HOUR_MIN=25
+export QUOTA_GATE_CACHE_TTL_SECONDS=60
+export QUOTA_GATE_NO_CACHE=1
+export QUOTA_GATE_DEBUG=1
+```
+
+Hook environment variables:
+
+- `QUOTA_GATE_WEEKLY_MIN=<0..100>`: override the hook's weekly hard floor. Default: `10`.
+- `QUOTA_GATE_FIVE_HOUR_MIN=<0..100>`: override the hook's five-hour hard floor. Default: `10`.
+- `QUOTA_GATE_CACHE_TTL_SECONDS=<n>`: cache freshness window for usage reads.
+- `QUOTA_GATE_NO_CACHE=1`: bypass the usage cache.
+- `QUOTA_GATE_DEBUG=1`: print token-redacted diagnostics to stderr.
+- `QUOTA_GATE_HOOK_PATTERN=<javascript-regex>`: override the trigger heuristic.
+- `QUOTA_GATE_HOOK_ALWAYS=1`: check every prompt.
 
 For Codex quota checks, select the Codex provider explicitly:
 
