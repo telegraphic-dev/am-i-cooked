@@ -4,6 +4,7 @@ import { chmod, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { CURSOR_AUTH_EXPIRED_HINT } from '../skills/quota-gate/scripts/cursor-auth.mjs';
+import { QuotaGateError } from '../skills/quota-gate/scripts/errors.mjs';
 import { SAND_USAGE_URL, SUMMARY_USAGE_URL, buildCursorUsage } from '../skills/quota-gate/scripts/cursor-usage.mjs';
 import { redactSecrets } from '../skills/quota-gate/scripts/errors.mjs';
 import { writeUsageCache } from '../skills/quota-gate/scripts/cache.mjs';
@@ -137,6 +138,75 @@ test('membershipType unified_* is enough to ignore the plan meter', () => {
   assert.equal(usage.extra.unified, true);
   assert.equal(usage.weekly.used_pct, 89.1);
   assert.equal(usage.extra.cursor_plan.ignored_for_decision, true);
+});
+
+test('nonnumeric usage percentages fail closed instead of becoming 0%', async () => {
+  for (const usagePercent of [false, true, '', '   ', '89abc', [], {}]) {
+    assert.throws(
+      () => buildCursorUsage({ provider: 'grokbot', sand: { usagePercent, isUnified: true }, now: () => NOW_MS }),
+      error => error instanceof QuotaGateError && error.code === 'invalid_cursor_usage_response'
+    );
+  }
+
+  const stringPercent = buildCursorUsage({
+    provider: 'grokbot',
+    sand: { usage_percent: '40.5', is_unified: false },
+    now: () => NOW_MS
+  });
+  assert.equal(stringPercent.weekly.used_pct, 40.5);
+  assert.equal(stringPercent.weekly.remaining_pct, 59.5);
+
+  const token = cursorJwt({ sig: 'nonnumeric-secret' });
+  const { dir, env } = await isolatedHome(token);
+  const io = streams();
+  const code = await runQuotaGate({
+    argv: ['--provider=grokbot', '--no-cache'],
+    env,
+    stdout: io.stdout,
+    stderr: io.stderr,
+    now: () => NOW_MS,
+    runCommand: async () => { throw new Error('cli must not run'); },
+    fetchImpl: cursorFetch({ sand: okResponse({ usagePercent: false, hasAvailableUsage: true }) })
+  });
+  await rm(dir, { recursive: true, force: true });
+
+  assert.equal(code, 1);
+  assert.equal(io.json().allowed, false);
+  assert.equal(io.json().reason, 'invalid_cursor_usage_response');
+});
+
+test('a nonnumeric plan percent fails closed on a non-unified subscription', () => {
+  assert.throws(
+    () => buildCursorUsage({
+      provider: 'cursor',
+      sand: { ...sandFixture, isUnified: false, usagePercent: 10 },
+      summary: { ...planSummaryFixture, individualUsage: { plan: { totalPercentUsed: '' } } },
+      now: () => NOW_MS
+    }),
+    error => error instanceof QuotaGateError && error.code === 'invalid_cursor_usage_response'
+  );
+  assert.throws(
+    () => buildCursorUsage({
+      provider: 'cursor',
+      sand: { ...sandFixture, isUnified: false, usagePercent: 10 },
+      summary: { ...planSummaryFixture, individualUsage: { plan: { totalPercentUsed: [] } } },
+      now: () => NOW_MS
+    }),
+    error => error instanceof QuotaGateError && error.code === 'invalid_cursor_usage_response'
+  );
+});
+
+test('a unified plan ignores a nonnumeric plan percent instead of reading it as zero', () => {
+  const usage = buildCursorUsage({
+    provider: 'cursor',
+    sand: sandFixture,
+    summary: { ...unifiedSummaryFixture, individualUsage: { plan: { totalPercentUsed: false } } },
+    now: () => NOW_MS
+  });
+  assert.equal(usage.weekly.used_pct, 89.1);
+  assert.equal(usage.extra.authoritative_meter, 'grokbot');
+  assert.equal(usage.extra.cursor_plan.unavailable, true);
+  assert.equal(usage.extra.cursor_plan.used_pct, undefined);
 });
 
 test('non-unified cursor check keeps the more-used meter', () => {

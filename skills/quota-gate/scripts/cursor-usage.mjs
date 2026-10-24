@@ -224,9 +224,16 @@ function calculatePacing(usedPct, resetsAt, periodDurationMs, now) {
 }
 
 function finitePercent(value) {
-  const used = Number(value);
-  if (!Number.isFinite(used) || used < 0 || used > 100) return null;
-  return used;
+  let numeric = value;
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (!/^(?:\d+(?:\.\d+)?|\.\d+)$/.test(trimmed)) return null;
+    numeric = Number(trimmed);
+  } else if (typeof value !== 'number') {
+    return null;
+  }
+  if (!Number.isFinite(numeric) || numeric < 0 || numeric > 100) return null;
+  return numeric;
 }
 
 function pick(obj, ...keys) {
