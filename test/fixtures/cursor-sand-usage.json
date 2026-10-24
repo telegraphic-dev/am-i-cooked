@@ -1,0 +1,15 @@
+{
+  "usagePercent": 89.1,
+  "currentPeriodStart": "2026-10-17T18:43:19.645Z",
+  "nextResetTimestampUtc": "2026-10-24T18:43:19.645Z",
+  "hasAvailableUsage": true,
+  "isUnified": true,
+  "cursorPlanName": "Ultra",
+  "billingBrand": "cursor",
+  "onDemandSettings": {
+    "visible": true,
+    "eligible": true,
+    "enabled": false,
+    "dashboardUrl": "https://cursor.com/dashboard/spending?for=grok|user_01TEST"
+  }
+}
