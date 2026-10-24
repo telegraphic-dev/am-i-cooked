@@ -2,7 +2,7 @@
 
 `quota-gate` is an agent quota preflight skill for checking remaining AI coding subscription usage before expensive, long-running, or automated work. It ships a small Node.js gate that returns a stable machine-readable allow/skip decision.
 
-By default it reads Claude usage directly from local Claude Code credentials. It currently supports Claude Code and Codex directly, using the same local credentials their CLIs already store. Additional provider adapters can be added without requiring a resident OpenUsage app.
+By default it reads Claude usage directly from local Claude Code credentials. It supports Claude Code, Codex, and Cursor directly, using the same local credentials their CLIs already store. Cursor checks include the Grok Bot weekly allowance. Additional provider adapters can be added without requiring a resident OpenUsage app.
 
 ## Installation
 
@@ -79,7 +79,61 @@ For Codex quota checks, select the Codex provider explicitly:
 scripts/quota-gate --provider=codex --weekly-min=50 --session-min=20
 ```
 
-Thresholds are minimum **remaining** percentages.
+## Using quota-gate from Grok Bot
+
+A Grok Bot agent checks its weekly allowance before expensive work. That allowance is billed through Cursor. quota-gate reads the Cursor CLI login on the computer where the agent runs.
+
+Install the Cursor CLI when `cursor-agent` is not already on `PATH`:
+
+```bash
+curl -fsS https://cursor.com/install | bash
+```
+
+The installer places `cursor-agent` and `agent` in `~/.local/bin`.
+
+Start login in the background so the command can print a URL and keep waiting:
+
+```bash
+NO_OPEN_BROWSER=1 cursor-agent login
+```
+
+Send the printed `cursor.com/loginDeepControl` URL to the human. They approve it on any device that is already signed in to Cursor.
+
+Confirm the login:
+
+```bash
+cursor-agent status
+```
+
+Then run the gate. From a repository checkout, prefix `scripts/quota-gate` with `skills/quota-gate/`:
+
+```bash
+scripts/quota-gate --provider=grokbot --weekly-min=50
+```
+
+`--provider=grokbot` checks the Grok Bot weekly meter. Remaining percent is `100 - usagePercent`, and the reset time is `nextResetTimestampUtc`. `--provider=cursor` also reads the Cursor billing-cycle meter. On a unified plan it still gates on the Grok Bot meter. Thresholds are minimum remaining percentages.
+
+A Cursor CLI login lasts about 60 days.
+
+### When the login expires
+
+When the access token is expired, or the usage API returns 401 or 403, quota-gate runs `cursor-agent status` once if the CLI is installed. It re-reads the CLI login and retries the usage request once. quota-gate does not refresh tokens itself, and it does not put the access token or refresh token on the command line.
+
+If the login is still expired or the retry is still unauthorized, the gate exits 1:
+
+```json
+{"allowed":false,"reason":"auth_expired","hint":"Login expired. Re-run `NO_OPEN_BROWSER=1 cursor-agent login` in the background, send the printed URL to the human to approve, confirm with `cursor-agent status`, then retry."}
+```
+
+Run `NO_OPEN_BROWSER=1 cursor-agent login` in the background again, send the new URL to the human, confirm with `cursor-agent status`, and run quota-gate again.
+
+### Unified plans
+
+Some Cursor subscriptions are unified (`isUnified: true`, or a `membershipType` such as `unified_ultra`). On those plans the Cursor billing-cycle meter can read 0% while Grok Bot shows the shared pool. quota-gate does not treat that 0% as quota left. On a unified plan the Grok Bot meter is the gate. On any other plan, `--provider=cursor` gates on whichever meter has less remaining, so a quiet meter cannot report plenty left.
+
+Missing fields, non-200 responses, and an expired token that the CLI cannot refresh are unknown (exit 1). They are not an allow, and they are not a low-quota result.
+
+Thresholds for every provider are minimum **remaining** percentages.
 
 ## Decision contract
 
@@ -168,7 +222,7 @@ scripts/quota-gate \
 
 Options:
 
-- `--provider=<claude|codex>`: provider to check. Default: `claude`.
+- `--provider=<claude|codex|cursor|grokbot>`: provider to check. Default: `claude`. `cursor` checks Cursor and the Grok Bot allowance. `grokbot` checks the Grok Bot weekly meter only.
 - `--weekly-min=<0..100>`: minimum weekly remaining percentage. Default: `50`.
 - `--five-hour-min=<0..100>` / `--session-min=<0..100>`: minimum session/five-hour remaining percentage. Default: `0`.
 - `--json`: accepted for clarity; JSON output is always enabled.
@@ -223,6 +277,19 @@ The Codex provider reuses local Codex CLI credentials. Lookup order:
 
 Codex API-key-only auth is not enough for subscription quota checks; the gate fails closed with `codex_api_key_only`.
 
+### Cursor credentials
+
+The Cursor and Grok Bot providers read the Cursor CLI login. Lookup order:
+
+1. `CURSOR_ACCESS_TOKEN`, when it is set and the token is not expired
+2. The CLI auth file written by `cursor-agent login`:
+   - `$XDG_CONFIG_HOME/cursor/auth.json`, when `XDG_CONFIG_HOME` is set
+   - `~/.config/cursor/auth.json` on Linux
+   - `~/.cursor/auth.json` on macOS
+   - `%APPDATA%\Cursor\auth.json` on Windows
+
+The file contains `accessToken` and `refreshToken`. quota-gate reads it and does not write it. A live `CURSOR_ACCESS_TOKEN` wins over the file. An expired env token does not hide a live token in the auth file.
+
 ## Token refresh
 
 ### Claude Code
@@ -265,6 +332,14 @@ Accept: application/json
 
 Refreshed Codex tokens are written back to the Codex `auth.json`, matching CLI-style token persistence.
 
+### Cursor
+
+quota-gate does not refresh Cursor tokens itself and does not call an OAuth token endpoint.
+
+When the access token is expired, or the usage API returns 401 or 403, quota-gate runs `cursor-agent status` once if `cursor-agent` is installed (`CURSOR_AGENT_BIN`, `PATH`, or `~/.local/bin`). The CLI rewrites its auth file when it can refresh the login. quota-gate re-reads that file and retries the usage request once. The child process gets `NO_OPEN_BROWSER=1`. The access token and refresh token are not command arguments.
+
+If the token is still expired, or the retry is still unauthorized, the gate exits 1 with reason `auth_expired` and a hint to run `NO_OPEN_BROWSER=1 cursor-agent login`. See [When the login expires](#when-the-login-expires).
+
 ## Usage endpoint
 
 ### Claude Code
@@ -296,6 +371,39 @@ Accept: application/json
 
 The endpoint is undocumented and may change. Invalid responses fail closed.
 
+### Cursor and Grok Bot
+
+Both providers use the Cursor CLI login. These endpoints are undocumented and may change. A missing field, a non-200 response, or a token the CLI cannot refresh fails closed as unknown.
+
+Grok Bot weekly allowance (`--provider=grokbot`, and the unified-plan meter for `--provider=cursor`):
+
+```http
+POST https://api2.cursor.sh/aiserver.v1.DashboardService/GetSandUsageStatus
+Authorization: Bearer <access token>
+Content-Type: application/json
+Connect-Protocol-Version: 1
+
+{}
+```
+
+`usagePercent` is percent used. Remaining is `100 - usagePercent`. The reset time is `nextResetTimestampUtc`. That window is `usage.weekly`.
+
+Cursor billing-cycle summary (`--provider=cursor`):
+
+```http
+GET https://cursor.com/api/usage-summary
+Cookie: WorkosCursorSessionToken=<url-encoded user id "::" access token>
+Accept: application/json
+```
+
+The user id is the JWT `sub` after the last `|`. `individualUsage.plan.totalPercentUsed` is the billing-cycle percent used.
+
+On a unified plan the summary can show 0% while Grok Bot shows the shared pool. `--provider=cursor` gates on the Grok Bot meter in that case and keeps the summary under `usage.extra` with `ignored_for_decision: true`. On any other plan it gates on the meter with less remaining. The selected meter is still `usage.weekly`.
+
+There is no five-hour window. `--five-hour-min` or `--session-min` above 0 fails closed with `missing_five_hour_usage`.
+
+`includedLimitZero: true`, `hasNonZeroIncludedLimit: false`, and `usesPooledEnterpriseAllowance: true` are unknown. A 0% reading in those cases is not quota left.
+
 ## Usage normalization
 
 The gate normalizes provider responses into `weekly` and optional `five_hour` windows with `used_pct`, `remaining_pct`, and reset metadata when available.
@@ -314,6 +422,15 @@ For Codex usage:
 - `rate_limit.secondary_window.used_percent`: weekly usage percentage, when present.
 - `reset_after_seconds`, `reset_at`, and `limit_window_seconds` are converted into reset and period metadata.
 - optional fields such as `rate_limit_reset_credits`, `additional_rate_limits`, and `balance` are preserved under `usage.extra`.
+
+For Cursor and Grok Bot usage:
+
+- Grok Bot `usagePercent` maps to `weekly.used_pct`. Remaining is `100 - usagePercent`.
+- `nextResetTimestampUtc` maps to `weekly.resets_at`.
+- On a unified plan, `weekly` is the Grok Bot meter. The Cursor plan percent is preserved under `usage.extra.cursor_plan` and is not the gate.
+- On any other plan, `weekly` is whichever of the Grok Bot meter and `individualUsage.plan.totalPercentUsed` has less remaining.
+- `usage.extra.authoritative_meter` is `grokbot` or `cursor_plan`.
+- `usage.extra.unified` records whether the subscription was treated as unified.
 
 When `resets_at` is present, the script also adds advisory `pacing` metadata. It uses the known window duration — five hours for `five_hour`, seven days for `weekly` — and the reset time to estimate whether current usage is ahead of a linear budget:
 
@@ -358,7 +475,8 @@ scripts/quota-gate --cache-ttl-seconds=60
 ## Security
 
 - Access tokens, refresh tokens, and full credential JSON are never printed.
-- Debug logs redact bearer tokens and token-looking fields.
+- Debug logs redact bearer tokens, session cookies, JWTs, and token-looking fields.
+- Cursor refresh runs `cursor-agent status` with `NO_OPEN_BROWSER=1` and does not pass tokens as arguments. `CURSOR_ACCESS_TOKEN` is not forwarded to that process.
 - Tokens are not stored in the project directory.
 - Cache stores normalized usage only, not credentials.
 - Unknown quota fails closed.
@@ -399,9 +517,29 @@ The usage endpoint returned a shape the script does not understand. The gate sto
 
 The credential is rejected or lacks access to the usage endpoint. Sign in again with the relevant CLI. Claude credentials made for inference-only workflows may not include `user:profile`, which is needed for live usage.
 
-### `usage_endpoint_429` / `codex_usage_429`
+### `usage_endpoint_429` / `codex_usage_429` / `cursor_sand_usage_429` / `cursor_plan_usage_429`
 
-The usage endpoint rate-limited the request. The script can use a non-stale cache; otherwise it fails closed.
+The usage endpoint rate-limited the request. The script can use a non-stale cache; otherwise it fails closed. A 429 does not start a Cursor login refresh.
+
+### `missing_cursor_credentials`
+
+No Cursor CLI login was found. Install the CLI, log in, and confirm before retrying:
+
+```bash
+curl -fsS https://cursor.com/install | bash
+NO_OPEN_BROWSER=1 cursor-agent login
+cursor-agent status
+```
+
+Send the printed login URL to the human to approve. The gate also returns this hint on `missing_cursor_credentials`.
+
+### `auth_expired`
+
+The Cursor access token is expired, or the usage API returned 401 or 403, and one `cursor-agent status` refresh did not produce a usable token. Re-run `NO_OPEN_BROWSER=1 cursor-agent login` in the background, send the printed URL to the human, confirm with `cursor-agent status`, and run quota-gate again. See [When the login expires](#when-the-login-expires).
+
+### `invalid_cursor_usage_response` / `cursor_no_included_quota` / `cursor_pooled_enterprise_usage`
+
+The Cursor or Grok Bot response was missing the usage percent, had no included allowance, or exposed only a pooled enterprise allowance. The gate stops instead of treating that as quota left.
 
 ### Claude Code Web credential visibility
 

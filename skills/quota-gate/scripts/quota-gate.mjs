@@ -5,9 +5,13 @@ import { discoverClaudeCredentials, getClaudeAccessToken } from './claude-auth.m
 import { fetchClaudeUsage } from './claude-usage.mjs';
 import { discoverCodexCredentials, getCodexAccessToken } from './codex-auth.mjs';
 import { fetchCodexUsage } from './codex-usage.mjs';
+import { withCursorAccessToken } from './cursor-auth.mjs';
+import { fetchCursorMeters } from './cursor-usage.mjs';
 import { DEFAULT_TTL_SECONDS, defaultCachePath, readUsageCache, writeUsageCache } from './cache.mjs';
 import { QuotaGateError, redactSecrets } from './errors.mjs';
 import { evaluateQuotaGate } from './usage-core.mjs';
+
+const DIRECT_PROVIDERS = new Set(['claude', 'codex', 'cursor', 'grokbot']);
 
 export function parseArgs(argv) {
   const options = {
@@ -54,12 +58,12 @@ function parseIdentifier(arg, prefix) {
   return value;
 }
 
-export async function runQuotaGate({ argv = process.argv.slice(2), env = process.env, fetchImpl = globalThis.fetch, stdout = process.stdout, stderr = process.stderr, now = Date.now } = {}) {
+export async function runQuotaGate({ argv = process.argv.slice(2), env = process.env, fetchImpl = globalThis.fetch, stdout = process.stdout, stderr = process.stderr, now = Date.now, runCommand } = {}) {
   let options;
   try {
     options = parseArgs(argv);
   } catch (error) {
-    writeJson(stdout, unknownPayload(errorCode(error)));
+    writeJson(stdout, unknownPayload(error));
     return 1;
   }
 
@@ -74,22 +78,22 @@ export async function runQuotaGate({ argv = process.argv.slice(2), env = process
 
   try {
     validateProvider(options.provider);
-    const usage = await getUsageWithCache({ options, env, fetchImpl, now, debug });
+    const usage = await getUsageWithCache({ options, env, fetchImpl, now, debug, runCommand });
     const allowed = evaluateQuotaGate(usage, thresholds);
     writeJson(stdout, { allowed, reason: allowed ? 'ok' : 'below_threshold', thresholds, usage });
     return allowed ? 0 : 2;
   } catch (error) {
     debug(`quota gate failed: ${errorCode(error)}`);
-    writeJson(stdout, unknownPayload(errorCode(error)));
+    writeJson(stdout, unknownPayload(error));
     return 1;
   }
 }
 
 function validateProvider(provider) {
-  if (provider !== 'claude' && provider !== 'codex') throw new QuotaGateError('unsupported_direct_provider');
+  if (!DIRECT_PROVIDERS.has(provider)) throw new QuotaGateError('unsupported_direct_provider');
 }
 
-async function getUsageWithCache({ options, env, fetchImpl, now, debug }) {
+async function getUsageWithCache({ options, env, fetchImpl, now, debug, runCommand }) {
   const cachePath = defaultCachePath(env, cacheName(options));
   if (!options.noCache) {
     const cached = await readUsageCache({ path: cachePath, ttlSeconds: options.cacheTtlSeconds, now });
@@ -100,7 +104,7 @@ async function getUsageWithCache({ options, env, fetchImpl, now, debug }) {
   }
 
   try {
-    const usage = await fetchUsage({ options, env, fetchImpl, now, debug });
+    const usage = await fetchUsage({ options, env, fetchImpl, now, debug, runCommand });
     if (!options.noCache) await writeUsageCache(usage, { path: cachePath, now });
     return usage;
   } catch (error) {
@@ -115,7 +119,7 @@ async function getUsageWithCache({ options, env, fetchImpl, now, debug }) {
   }
 }
 
-async function fetchUsage({ options, env, fetchImpl, now, debug }) {
+async function fetchUsage({ options, env, fetchImpl, now, debug, runCommand }) {
   switch (options.provider) {
     case 'claude': {
       const authCandidate = await discoverClaudeCredentials({ env });
@@ -130,6 +134,14 @@ async function fetchUsage({ options, env, fetchImpl, now, debug }) {
       debug(`usage source=codex-direct credential source=${credential.path} refreshed=${refreshed}`);
       return await fetchCodexUsage(accessToken, { accountId, fetchImpl, now });
     }
+    case 'cursor':
+    case 'grokbot':
+      return await withCursorAccessToken({ env, runCommand, now, debug }, credential => fetchCursorMeters({
+        accessToken: credential.accessToken,
+        provider: options.provider,
+        fetchImpl,
+        now
+      }));
     default:
       throw new QuotaGateError('unsupported_direct_provider');
   }
@@ -143,8 +155,10 @@ function writeJson(stream, payload) {
   stream.write(`${JSON.stringify(payload)}\n`);
 }
 
-function unknownPayload(reason) {
-  return { allowed: false, reason };
+function unknownPayload(error) {
+  const payload = { allowed: false, reason: errorCode(error) };
+  if (error instanceof QuotaGateError && typeof error.hint === 'string' && error.hint) payload.hint = error.hint;
+  return payload;
 }
 
 function errorCode(error) {
